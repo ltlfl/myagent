@@ -1,0 +1,39 @@
+# LangChain相关依赖
+langchain==0.1.0
+langchain-openai==0.0.5
+langchain-community==0.0.12
+langchain-core==0.1.7
+langgraph==1.0.3
+python-dotenv==1.0.0
+langchain-experimental==0.4.0
+# OpenAI
+openai==1.6.1
+
+# Chainlit (用于前端界面)
+chainlit==1.0.500
+
+# 多智能体数据查询系统 - Python 3.12 兼容版本
+
+# 数据库相关
+PyMySQL==1.1.0
+sqlalchemy==2.0.23
+
+# 数据处理 (Python 3.12 兼容版本)
+pandas==2.1.4
+numpy>=1.26.0
+
+# 自然语言处理
+nltk==3.8.1
+jieba==0.42.1
+
+# 配置和环境
+pyyaml==6.0.1
+
+# 工具库
+requests==2.31.0
+click==8.1.7
+python-dateutil==2.8.2
+
+# 日志和监控
+colorlog==6.8.0
+rich==13.7.0
