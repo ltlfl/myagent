@@ -134,12 +134,7 @@ class MultiAgentCLI:
         except Exception as e:
             print(f"❌ 清空错误: {e}")
     
-    def display_tables(self):
-        """显示所有数据表"""
-      
-    
-    def display_table_info(self, table_name: str):
-        """显示表结构信息"""
+   
         
     
     def process_text2sql_query(self, query: str):
@@ -382,15 +377,7 @@ class MultiAgentCLI:
         elif user_input.lower() == 'clear':
             self.clear_history()
         
-        elif command == 'tables':
-            self.display_tables()
-        
-        elif user_input.lower().startswith('table '):
-            table_name = user_input[6:].strip()
-            if table_name:
-                self.display_table_info(table_name)
-            else:
-                print("❌ 请提供表名")
+       
         
         else:
             # 处理查询

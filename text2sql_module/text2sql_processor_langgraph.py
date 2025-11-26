@@ -69,8 +69,6 @@ class Text2SQLState(TypedDict):
     refined_validation_result: Optional[Dict[str, Any]]
     error: Optional[str]
     success: bool
-    retry_count: int  # 重试计数
-    sql_error: Optional[str]  # SQL执行错误信息
 
 class Text2SQLProcessorLangGraph:
     """基于LangGraph实现的Text2SQL处理器，保持与原始处理器相同的接口"""
@@ -194,7 +192,8 @@ class Text2SQLProcessorLangGraph:
             try:
                 # 直接从prompts_manager获取货币优化提示词
                 huobiyouhua_prompt = prompts_manager.get_prompt('text2sql', 'huobiyouhua')
-       
+                print("--------------------------")
+                print(huobiyouhua_prompt)
                 if not huobiyouhua_prompt or not isinstance(huobiyouhua_prompt, str):
                     huobiyouhua_prompt = "请优化以下SQL查询。"
                     logger.warning("使用默认SQL优化提示词")
@@ -216,26 +215,6 @@ class Text2SQLProcessorLangGraph:
             self.explanation_chain = None
             self.react_prompt_template = None
             raise
-    
-    def _should_retry_sql(self, state: Text2SQLState) -> str:
-        """
-        条件函数：判断SQL执行失败时是否需要重试
-        重试次数不超过3次则返回'retry'，否则返回'fail'
-        """
-        execution_result = state.get('execution_result', {})
-        success = execution_result.get('success', True)
-        
-        # 如果执行成功，直接返回成功路径
-        if success:
-            return 'success'
-        
-        # 如果执行失败，检查重试次数
-        retry_count = state.get('retry_count', 0)
-        if retry_count < 2:  # 已执行1次，最多再重试2次，总共3次
-            return 'retry'
-        else:
-            # 达到最大重试次数
-            return 'fail'
     
     def _init_workflow(self):
         """初始化LangGraph工作流"""
@@ -262,18 +241,7 @@ class Text2SQLProcessorLangGraph:
             self.graph.add_edge("validate_sql", "refine_sql")
             self.graph.add_edge("refine_sql", "validate_refined_sql")
             self.graph.add_edge("validate_refined_sql", "execute_sql")
-            
-            # 添加条件边：根据SQL执行结果决定下一步
-            self.graph.add_conditional_edges(
-                "execute_sql",
-                self._should_retry_sql,
-                {
-                    "success": "generate_explanation",  # 执行成功，生成解释
-                    "retry": "refine_sql",  # 失败且重试次数未达上限，重新优化
-                    "fail": "generate_explanation"  # 失败且达到最大重试次数，直接生成解释
-                }
-            )
-            
+            self.graph.add_edge("execute_sql", "generate_explanation")
             self.graph.add_edge("generate_explanation", END)
             
             # 编译图
@@ -364,6 +332,7 @@ class Text2SQLProcessorLangGraph:
                 result_key = 'refined_validation_result' if is_refined_sql else 'validation_result'
                 return {
                     result_key: basic_validation,
+                    'validation_result': basic_validation,
                     'error': f'{sql_type}不符合安全规范: {basic_validation["error"]}',
                     'success': False
                 }
@@ -405,6 +374,7 @@ class Text2SQLProcessorLangGraph:
                 result_key = 'refined_validation_result' if is_refined_sql else 'validation_result'
                 return {
                     result_key: validation_result,
+                    'validation_result': validation_result,
                     'error': f'{sql_type}不符合安全规范: {validation_result["error"]}',
                     'success': False
                 }
@@ -416,56 +386,17 @@ class Text2SQLProcessorLangGraph:
             logger.error(f"SQL验证失败: {e}")
             return {'error': f'SQL验证失败: {str(e)}', 'success': False}
     
-    def _build_refine_prompt(self, sql_query: str, original_query: str, schema_info: str, sql_error: Optional[str] = None) -> str:
-        """构建SQL优化提示词"""
-        # 基础提示词
-        prompt = f"""
-        请优化以下SQL查询以确保其正确性和高效性。
-        
-        原始查询: {original_query}
-        当前SQL: {sql_query}
-        数据库模式信息:
-        {schema_info}
-        """
-        
-        # 如果有SQL错误信息，添加到提示词中
-        if sql_error:
-            prompt += f"""
-            
-            错误信息:
-            {sql_error}
-            
-            请特别注意上述错误，修复SQL查询使其能够正确执行。
-            """
-        
-        prompt += f"""
-        
-        请确保:
-        1. SQL语法正确
-        2. 查询语义与原始查询一致
-        3. 避免SQL注入
-        4. 优化查询性能
-        5. 只返回优化后的SQL，不要包含其他解释
-        """
-        
-        return prompt
-        
     def _refine_sql_node(self, state: Text2SQLState) -> Dict[str, Any]:
         """优化SQL节点"""
         try:
-            # 获取当前SQL（初始生成或上一次优化的）
-            sql_query = state.get('refined_sql', state.get('initial_sql', ''))
             question = state.get('original_query', '')
-            
-            # 获取SQL错误信息（如果有）
-            sql_error = state.get('sql_error')
-            retry_count = state.get('retry_count', 0)
+            initial_sql = state.get('initial_sql', '')
             
             # 获取数据库表信息
             table_info_result = self.get_table_info()
             if not table_info_result['success']:
                 logger.warning(f"获取表信息失败，使用原始SQL: {table_info_result['error']}")
-                return {'refined_sql': sql_query}
+                return {'refined_sql': initial_sql}
             
             # 格式化表信息
             table_info_str = ""
@@ -473,34 +404,30 @@ class Text2SQLProcessorLangGraph:
                 if 'schema' in info:
                     table_info_str += f"\n\n表 {table}:\n{info['schema']}"
             
-            # 构建优化SQL提示词
-            refine_prompt = self._build_refine_prompt(sql_query, question, table_info_str, sql_error)
+            # 使用SQL优化提示词模板生成提示内容
+            # 提示词来源: prompts_manager.text2sql.huobiyouhua
+            # 对于ChatPromptTemplate，使用invoke生成消息列表
+            messages = self.react_prompt_template.invoke({
+                "question": question,
+                "table_info": table_info_str,
+                "initial_sql": initial_sql
+            })
             
             # 调用模型生成优化的SQL
-            llm_response = self.model.invoke([HumanMessage(content=refine_prompt)])
-            logger.debug("使用自定义优化提示词生成优化SQL")
+            llm_response = self.model.invoke(messages)
+            logger.debug("使用化提示词生成优化SQL")
             refined_sql = llm_response.content
             
-            # 清理生成的SQL
+            # 清洗生成的SQL
             cleaned_refined_sql = self._clean_sql_query(refined_sql)
             
-            # 更新重试计数
-            new_retry_count = retry_count + 1
+            logger.info(f"优化后的SQL: {cleaned_refined_sql}")
             
-            logger.info(f"优化后的SQL: {cleaned_refined_sql}，当前重试次数: {new_retry_count}")
-            
-            return {
-                'refined_sql': cleaned_refined_sql,
-                'retry_count': new_retry_count,
-                'sql_error': None  # 清除上一次的错误信息
-            }
+            return {'refined_sql': cleaned_refined_sql}
         except Exception as e:
             logger.error(f"SQL优化失败: {e}")
-            # 使用当前SQL作为后备
-            return {
-                'refined_sql': state.get('refined_sql', state.get('initial_sql', '')),
-                'retry_count': state.get('retry_count', 0) + 1
-            }
+            # 使用原始SQL作为后备
+            return {'refined_sql': state.get('initial_sql', '')}
     
     def _validate_refined_sql_node(self, state: Text2SQLState) -> Dict[str, Any]:
         """验证优化后的SQL节点 - 复用_validate_sql_node的验证逻辑"""
@@ -554,36 +481,18 @@ class Text2SQLProcessorLangGraph:
                 'success': True,
                 'data': data,
                 'row_count': row_count,
-                'raw_result': raw_result,
-                'error': None
+                'raw_result': raw_result
             }
             
-            # 重置重试计数
             return {
                 'execution_result': execution_result,
-                'row_count': row_count,
-                'retry_count': 0,
-                'sql_error': None
+                'row_count': row_count
             }
         except Exception as e:
-            error_message = str(e)
-            logger.error(f"SQL执行失败: {error_message}")
-            
-            # 获取当前重试计数
-            current_retry = state.get('retry_count', 0)
-            
-            execution_result = {
-                'success': False,
-                'data': None,
-                'error': error_message
-            }
-            
+            logger.error(f"SQL执行失败: {e}")
             return {
-                'execution_result': execution_result,
-                'error': f'SQL执行失败: {error_message}',
-                'success': False,
-                'retry_count': current_retry,
-                'sql_error': error_message
+                'error': f'SQL执行失败: {str(e)}',
+                'success': False
             }
     
     def _generate_explanation_node(self, state: Text2SQLState) -> Dict[str, Any]:
@@ -625,7 +534,7 @@ class Text2SQLProcessorLangGraph:
             }
     
     def _clean_sql_query(self, sql_query: str) -> str:
-        """清理SQL查询"""
+        """清洗SQL查询"""
         if not isinstance(sql_query, str):
             return str(sql_query)
         

@@ -3368,3 +3368,542 @@ WHERE BIRTH_DT IS NOT NULL AND BIRTH_DT != '';，当前重试次数: 1
 2025-11-25 14:03:05,100 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
 2025-11-25 14:03:19,182 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
 2025-11-25 14:03:19,183 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 16:11:35,614 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-25 16:11:39,977 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-25 16:11:40,314 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-25 16:11:42,867 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-25 16:11:42,870 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-25 16:11:42,887 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-25 16:11:42,888 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-25 16:52:43,670 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_161135]: 按年纪大小将客户排序，年纪小的在前
+2025-11-25 16:52:50,194 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:52:50,204 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT DESC LIMIT None;
+2025-11-25 16:52:51,725 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:52:51,726 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT * 
+FROM customer_info 
+ORDER BY STR_TO_DATE(BIRTH_DT, '%Y%m%d') ASC;，当前重试次数: 1
+2025-11-25 16:52:53,206 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:52:53,211 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 16:53:23,482 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:53:23,488 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 16:54:45,736 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_161135]: 数据库一共多少位客户
+2025-11-25 16:54:48,081 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:54:48,086 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 按年纪大小将客户排序，年纪小的在前
+                  ...
+2025-11-25 16:54:54,813 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:54:54,819 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT COUNT(*) AS total_customers FROM customer_info;
+2025-11-25 16:54:56,172 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:54:56,176 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT COUNT(*) AS customer_count FROM customer_info;，当前重试次数: 1
+2025-11-25 16:54:57,938 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:54:57,960 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 16:54:58,771 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:54:58,778 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 16:57:15,020 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_161135]: 那为什么你按年纪大小排序缺只排了49个？
+2025-11-25 16:57:16,763 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:57:16,765 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 按年纪大小将客户排序，年纪小的在前
+历史问题 2: 数据库一共多少位客户...
+2025-11-25 16:57:21,491 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:57:21,492 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT COUNT(*) AS total_customers FROM customer_info;
+2025-11-25 16:57:23,748 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:57:23,752 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    ci.CUST_NAM,
+    ci.BIRTH_DT,
+    TIMESTAMPDIFF(YEAR, STR_TO_DATE(ci.BIRTH_DT, '%Y%m%d'), CURDATE()) AS age
+FROM 
+    customer_info ci
+WHERE 
+    ci.CUST_STATUS = '0'
+ORDER BY 
+    age DESC;，当前重试次数: 1
+2025-11-25 16:57:25,063 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:57:25,074 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 16:57:29,046 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 16:57:29,052 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:03:48,339 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_161135]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序
+2025-11-25 17:03:49,094 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:03:49,095 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 按年纪大小将客户排序，年纪小的在前
+历史问题 2: 数据库一共多少位客户...
+2025-11-25 17:03:55,869 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:03:55,871 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT * FROM customer_info ORDER BY CUST_STATUS, BIRTH_DT DESC
+2025-11-25 17:04:00,759 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:04:00,762 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    `CUST_NO`, 
+    `CUST_NAM`, 
+    `ID_TYPE`, 
+    `ID_NO`, 
+    `BIRTH_DT`, 
+    `GENDER`, 
+    `MOBILE_N`, 
+    `ADDRESS`, 
+    `OCCUP_CD`, 
+    `RISK_LEVEL`, 
+    `CUST_STATUS`, 
+    `OPEN_ORG`
+FROM 
+    customer_info
+ORDER BY 
+    STR_TO_DATE(`BIRTH_DT`, '%Y%m%d') ASC;，当前重试次数: 1
+2025-11-25 17:04:02,268 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:04:02,278 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:06:49,912 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:06:49,914 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:10:26,942 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_161135]: 所有客户中年纪最大的是谁
+2025-11-25 17:10:30,027 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:10:30,032 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 数据库一共多少位客户
+历史问题 2: 那为什么你按年纪大小排序缺只排了4...
+2025-11-25 17:10:37,232 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:10:37,238 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT CUST_NAM, BIRTH_DT FROM customer_info ORDER BY BIRTH_DT DESC LIMIT 1;
+2025-11-25 17:10:38,541 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:10:38,545 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT CUST_NAM 
+FROM customer_info 
+WHERE CUST_STATUS = '0' 
+ORDER BY BIRTH_DT ASC 
+LIMIT 1;，当前重试次数: 1
+2025-11-25 17:10:39,594 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:10:39,604 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:10:40,117 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:10:40,119 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:14:23,545 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_161135]: 1.	高风险客户比低风险客户多还是少这种回答不出来
+2025-11-25 17:14:25,265 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:14:25,267 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 那为什么你按年纪大小排序缺只排了49个？
+历史问题 2: 按年纪大小将客...
+2025-11-25 17:14:34,463 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:14:34,469 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT 
+    (SELECT COUNT(*) FROM customer_info WHERE RISK_LEVEL = '03') AS high_risk_count,
+    (SELECT COUNT(*) FROM customer_info WHERE RISK_LEVEL = '01') AS low_risk_count,
+    CASE 
+        WHEN (SELECT COUNT(*) FROM customer_info WHERE RISK_LEVEL = '03') > (SELECT COUNT(*) FROM customer_info WHERE RISK_LEVEL = '01') 
+        THEN '高风险客户多'
+        WHEN (SELECT COUNT(*) FROM customer_info WHERE RISK_LEVEL = '03') < (SELECT COUNT(*) FROM customer_info WHERE RISK_LEVEL = '01') 
+        THEN '低风险客户多'
+        ELSE '高风险客户与低风险客户数量相等'
+    END AS comparison_result;
+2025-11-25 17:14:39,088 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:14:39,090 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    SUM(CASE WHEN ci.RISK_LEVEL = '03' THEN 1 ELSE 0 END) AS high_risk_count,
+    SUM(CASE WHEN ci.RISK_LEVEL = '01' THEN 1 ELSE 0 END) AS low_risk_count,
+    CASE 
+        WHEN SUM(CASE WHEN ci.RISK_LEVEL = '03' THEN 1 ELSE 0 END) > SUM(CASE WHEN ci.RISK_LEVEL = '01' THEN 1 ELSE 0 END) THEN '高风险客户多'
+        WHEN SUM(CASE WHEN ci.RISK_LEVEL = '03' THEN 1 ELSE 0 END) < SUM(CASE WHEN ci.RISK_LEVEL = '01' THEN 1 ELSE 0 END) THEN '低风险客户多'
+        ELSE '相同数量'
+    END AS comparison_result
+FROM customer_info ci
+WHERE ci.CUST_STATUS = '0';，当前重试次数: 1
+2025-11-25 17:14:40,654 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:14:40,657 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:14:42,246 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:14:42,248 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:28:38,789 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-25 17:28:41,784 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-25 17:28:42,017 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-25 17:28:44,358 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-25 17:28:44,361 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-25 17:28:44,376 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-25 17:28:44,377 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-25 17:28:49,178 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_172838]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序
+2025-11-25 17:28:55,410 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:28:55,427 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT DESC LIMIT None;
+2025-11-25 17:28:58,429 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:28:58,430 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    CUST_NO,
+    CUST_NAM,
+    ID_TYPE,
+    ID_NO,
+    BIRTH_DT,
+    GENDER,
+    MOBILE_N,
+    ADDRESS,
+    OCCUP_CD,
+    RISK_LEVEL,
+    CUST_STATUS,
+    OPEN_ORG
+FROM customer_info
+ORDER BY STR_TO_DATE(BIRTH_DT, '%Y%m%d') ASC;，当前重试次数: 1
+2025-11-25 17:28:59,623 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:28:59,624 - text2sql_module.text2sql_processor_langgraph - INFO - 执行SQL查询: SELECT 
+    CUST_NO,
+    CUST_NAM,
+    ID_TYPE,
+    ID_NO,
+    BIRTH_DT,
+    GENDER,
+    MOBILE_N,
+    ADDRESS,
+    OCCUP_CD,
+    RISK_LEVEL,
+    CUST_STATUS,
+    OPEN_ORG
+FROM customer_info
+ORDER BY STR_TO_DATE(BIRTH_DT, '%Y%m%d') ASC;
+2025-11-25 17:28:59,627 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL执行失败: 'RMKeyView' object is not subscriptable
+2025-11-25 17:29:03,096 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:29:03,100 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    CUST_NO,
+    CUST_NAM,
+    ID_TYPE,
+    ID_NO,
+    BIRTH_DT,
+    GENDER,
+    MOBILE_N,
+    ADDRESS,
+    OCCUP_CD,
+    RISK_LEVEL,
+    CUST_STATUS,
+    OPEN_ORG
+FROM customer_info
+ORDER BY BIRTH_DT ASC;，当前重试次数: 2
+2025-11-25 17:29:04,322 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:29:04,327 - text2sql_module.text2sql_processor_langgraph - INFO - 执行SQL查询: SELECT 
+    CUST_NO,
+    CUST_NAM,
+    ID_TYPE,
+    ID_NO,
+    BIRTH_DT,
+    GENDER,
+    MOBILE_N,
+    ADDRESS,
+    OCCUP_CD,
+    RISK_LEVEL,
+    CUST_STATUS,
+    OPEN_ORG
+FROM customer_info
+ORDER BY BIRTH_DT ASC;
+2025-11-25 17:29:04,335 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL执行失败: 'RMKeyView' object is not subscriptable
+2025-11-25 17:29:04,337 - text2sql_module.text2sql_processor_langgraph - ERROR - 查询处理失败: SQL执行失败: 'RMKeyView' object is not subscriptable
+2025-11-25 17:32:35,329 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-25 17:32:38,257 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-25 17:32:38,449 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-25 17:32:40,758 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-25 17:32:40,761 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-25 17:32:40,778 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-25 17:32:40,778 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-25 17:32:43,173 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_173235]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序
+2025-11-25 17:32:53,135 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:32:53,160 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT DESC LIMIT None;
+2025-11-25 17:32:55,314 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:32:55,315 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    CUST_NO,
+    CUST_NAM,
+    ID_TYPE,
+    ID_NO,
+    BIRTH_DT,
+    GENDER,
+    MOBILE_N,
+    ADDRESS,
+    OCCUP_CD,
+    RISK_LEVEL,
+    CUST_STATUS,
+    OPEN_ORG
+FROM customer_info
+ORDER BY STR_TO_DATE(BIRTH_DT, '%Y%m%d') ASC;，当前重试次数: 1
+2025-11-25 17:32:56,890 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:32:56,896 - text2sql_module.text2sql_processor_langgraph - INFO - 执行SQL查询: SELECT 
+    CUST_NO,
+    CUST_NAM,
+    ID_TYPE,
+    ID_NO,
+    BIRTH_DT,
+    GENDER,
+    MOBILE_N,
+    ADDRESS,
+    OCCUP_CD,
+    RISK_LEVEL,
+    CUST_STATUS,
+    OPEN_ORG
+FROM customer_info
+ORDER BY STR_TO_DATE(BIRTH_DT, '%Y%m%d') ASC;
+2025-11-25 17:32:56,903 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回50行结果
+2025-11-25 17:36:00,013 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:36:00,022 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:37:39,932 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_173235]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输出名字
+2025-11-25 17:37:41,975 - openai._base_client - INFO - Retrying request to /chat/completions in 0.492301 seconds
+2025-11-25 17:37:44,507 - openai._base_client - INFO - Retrying request to /chat/completions in 0.768416 seconds
+2025-11-25 17:37:47,292 - text2sql_module.text2sql_processor_langgraph - ERROR - 查询增强失败: Connection error.
+2025-11-25 17:37:49,365 - openai._base_client - INFO - Retrying request to /chat/completions in 0.397958 seconds
+2025-11-25 17:37:51,799 - openai._base_client - INFO - Retrying request to /chat/completions in 0.911519 seconds
+2025-11-25 17:37:54,734 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL生成失败: Connection error.
+2025-11-25 17:37:56,790 - openai._base_client - INFO - Retrying request to /chat/completions in 0.404125 seconds
+2025-11-25 17:37:59,228 - openai._base_client - INFO - Retrying request to /chat/completions in 0.777055 seconds
+2025-11-25 17:38:02,045 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL优化失败: Connection error.
+2025-11-25 17:38:02,047 - text2sql_module.text2sql_processor_langgraph - INFO - 执行SQL查询: 
+2025-11-25 17:38:02,049 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL执行失败: (pymysql.err.OperationalError) (1065, 'Query was empty')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-11-25 17:38:04,090 - openai._base_client - INFO - Retrying request to /chat/completions in 0.433383 seconds
+2025-11-25 17:38:06,583 - openai._base_client - INFO - Retrying request to /chat/completions in 0.803630 seconds
+2025-11-25 17:38:09,440 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL优化失败: Connection error.
+2025-11-25 17:38:09,444 - text2sql_module.text2sql_processor_langgraph - INFO - 执行SQL查询: 
+2025-11-25 17:38:09,447 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL执行失败: (pymysql.err.OperationalError) (1065, 'Query was empty')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-11-25 17:38:09,451 - text2sql_module.text2sql_processor_langgraph - ERROR - 查询处理失败: SQL执行失败: (pymysql.err.OperationalError) (1065, 'Query was empty')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-11-25 17:38:27,086 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_173235]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输出名字
+2025-11-25 17:38:29,126 - openai._base_client - INFO - Retrying request to /chat/completions in 0.464882 seconds
+2025-11-25 17:38:31,653 - openai._base_client - INFO - Retrying request to /chat/completions in 0.769169 seconds
+2025-11-25 17:38:34,463 - text2sql_module.text2sql_processor_langgraph - ERROR - 查询增强失败: Connection error.
+2025-11-25 17:38:36,521 - openai._base_client - INFO - Retrying request to /chat/completions in 0.422361 seconds
+2025-11-25 17:38:38,994 - openai._base_client - INFO - Retrying request to /chat/completions in 0.818395 seconds
+2025-11-25 17:38:41,840 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL生成失败: Connection error.
+2025-11-25 17:38:43,912 - openai._base_client - INFO - Retrying request to /chat/completions in 0.473168 seconds
+2025-11-25 17:38:46,414 - openai._base_client - INFO - Retrying request to /chat/completions in 0.873573 seconds
+2025-11-25 17:38:49,349 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL优化失败: Connection error.
+2025-11-25 17:38:49,353 - text2sql_module.text2sql_processor_langgraph - INFO - 执行SQL查询: 
+2025-11-25 17:38:49,356 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL执行失败: (pymysql.err.OperationalError) (1065, 'Query was empty')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-11-25 17:38:51,441 - openai._base_client - INFO - Retrying request to /chat/completions in 0.440429 seconds
+2025-11-25 17:38:53,903 - openai._base_client - INFO - Retrying request to /chat/completions in 0.850225 seconds
+2025-11-25 17:38:56,790 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL优化失败: Connection error.
+2025-11-25 17:38:56,791 - text2sql_module.text2sql_processor_langgraph - INFO - 执行SQL查询: 
+2025-11-25 17:38:56,794 - text2sql_module.text2sql_processor_langgraph - ERROR - SQL执行失败: (pymysql.err.OperationalError) (1065, 'Query was empty')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-11-25 17:38:56,795 - text2sql_module.text2sql_processor_langgraph - ERROR - 查询处理失败: SQL执行失败: (pymysql.err.OperationalError) (1065, 'Query was empty')
+(Background on this error at: https://sqlalche.me/e/20/e3q8)
+2025-11-25 17:39:06,314 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-25 17:39:09,195 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-25 17:39:09,387 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-25 17:39:10,482 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-25 17:39:10,486 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-25 17:39:10,503 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-25 17:39:10,503 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-25 17:39:11,876 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_173906]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输出名字
+2025-11-25 17:39:18,196 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:39:18,211 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT DESC
+2025-11-25 17:39:19,658 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:39:19,662 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT ASC
+2025-11-25 17:39:21,050 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:39:21,061 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:39:26,384 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:39:26,391 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:40:00,780 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_173906]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与，输出每个人详细信息
+2025-11-25 17:40:01,653 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:40:01,655 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输...
+2025-11-25 17:40:11,363 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:40:11,365 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT DESC
+2025-11-25 17:40:12,846 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:40:12,850 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT ASC
+2025-11-25 17:40:14,387 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:40:14,393 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:44:08,479 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:44:08,485 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:45:14,539 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-25 17:45:17,459 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-25 17:45:17,687 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-25 17:45:18,832 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-25 17:45:18,836 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-25 17:45:18,851 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-25 17:45:18,852 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-25 17:45:21,616 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_174514]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与，输出每个人详细信息
+2025-11-25 17:45:28,298 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:45:28,304 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT DESC
+2025-11-25 17:45:29,157 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:45:29,159 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT ASC
+2025-11-25 17:45:30,105 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:45:30,121 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:45:30,125 - text2sql_module.text2sql_processor_langgraph - ERROR - 解释生成失败: "Input to PromptTemplate is missing variables {'raw_result'}.  Expected: ['query_result', 'question', 'raw_result', 'sql_query'] Received: ['question', 'sql_query', 'query_result']\nNote: if you intended {raw_result} to be part of the string and not a variable, please escape it with double curly braces like: '{{raw_result}}'.\nFor troubleshooting, visit: https://docs.langchain.com/oss/python/langchain/errors/INVALID_PROMPT_INPUT "
+2025-11-25 17:45:30,127 - text2sql_module.text2sql_processor_langgraph - ERROR - 查询处理失败: 优化后的SQL不符合安全规范: 只支持SELECT、SHOW、DESCRIBE查询
+2025-11-25 17:51:04,293 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-25 17:51:07,206 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-25 17:51:07,394 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-25 17:51:08,519 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-25 17:51:08,523 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-25 17:51:08,541 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-25 17:51:08,541 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-25 17:51:10,718 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_175104]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输出名字
+2025-11-25 17:51:17,841 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:51:17,864 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT DESC
+2025-11-25 17:51:19,507 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:51:19,509 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT ASC
+2025-11-25 17:51:20,655 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:51:20,659 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:51:25,502 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:51:25,509 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:52:55,936 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_175104]: 我不是让你年纪小的在前面吗？你怎么年纪大的在前面？
+2025-11-25 17:52:56,861 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:52:56,863 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输...
+2025-11-25 17:53:03,607 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:53:03,613 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT CUST_NAM, BIRTH_DT FROM customer_info ORDER BY BIRTH_DT DESC
+2025-11-25 17:53:05,291 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:53:05,295 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT CUST_NAM, BIRTH_DT FROM customer_info ORDER BY BIRTH_DT ASC
+2025-11-25 17:53:06,329 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:53:06,341 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-25 17:53:12,457 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:53:12,459 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-25 17:54:22,407 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_175104]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与，输出每个人详细信息
+2025-11-25 17:54:23,435 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:54:23,436 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输...
+2025-11-25 17:54:28,043 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:54:28,049 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT DESC
+2025-11-25 17:54:28,809 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:54:28,812 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT * FROM customer_info ORDER BY BIRTH_DT ASC
+2025-11-25 17:54:30,211 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-25 17:54:30,227 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-26 08:30:42,824 - openai._base_client - INFO - Retrying request to /chat/completions in 0.422017 seconds
+2025-11-26 08:30:44,523 - openai._base_client - INFO - Retrying request to /chat/completions in 0.939542 seconds
+2025-11-26 08:30:45,470 - text2sql_module.text2sql_processor_langgraph - ERROR - 解释生成失败: Connection error.
+2025-11-26 08:30:45,471 - text2sql_module.text2sql_processor_langgraph - ERROR - 查询处理失败: 优化后的SQL不符合安全规范: 只支持SELECT、SHOW、DESCRIBE查询
+2025-11-26 08:58:07,652 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251125_175104]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与，输出每个人详细信息
+2025-11-26 08:58:09,025 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 08:58:09,034 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输...
+2025-11-26 08:58:18,962 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-26 08:58:24,243 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-26 08:58:24,616 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-26 08:58:27,378 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-26 08:58:27,382 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-26 08:58:27,402 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-26 08:58:27,402 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-26 08:58:30,715 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251126_085818]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输出名字
+2025-11-26 08:58:35,714 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 08:58:35,723 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT DESC LIMIT 10;
+2025-11-26 08:58:36,889 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 08:58:36,893 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT ASC LIMIT 10;
+2025-11-26 08:58:38,875 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 08:58:38,883 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-26 08:58:41,711 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 08:58:41,715 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-26 09:07:31,873 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-26 09:07:35,055 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-26 09:07:35,354 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-26 09:07:37,837 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-26 09:07:37,841 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-26 09:07:37,862 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-26 09:07:37,862 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-26 09:07:40,607 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251126_090731]: 按年纪大小将客户排序，年纪小的在前，无论客户状态是否正常都参与排序，只输出名字
+2025-11-26 09:07:46,961 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:07:46,972 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT DESC",
+    "explanation": "根据用户需求，需要按年纪大小排序，年纪小的在前。年龄小意味着出生日期更晚，因此应按BIRTH_DT降序排列（DESC）。由于所有客户无论状态如何都要参与排序，无需添加WHERE条件过滤状态。只输出客户姓名（CUST_NAM）。",
+    "tables_used": ["customer_info"],
+    "fields_used": ["CUST_NAM", "BIRTH_DT"],
+    "confidence": 0.95,
+    "alternatives": [
+        "SELECT CUST_NAM FROM customer_info ORDER BY STR_TO_DATE(BIRTH_DT, '%Y%m%d') DESC",
+        "SELECT CUST_NAM FROM customer_info ORDER BY SUBSTR(BIRTH_DT, 1, 4) DESC, SUBSTR(BIRTH_DT, 5, 2) DESC, SUBSTR(BIRTH_DT, 7, 2) DESC"
+    ]
+}
+2025-11-26 09:07:48,144 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:07:48,145 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT CUST_NAM FROM customer_info ORDER BY BIRTH_DT DESC
+2025-11-26 09:07:49,421 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:07:49,424 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-26 09:07:55,144 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:07:55,146 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-26 09:48:08,668 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-26 09:48:13,224 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-26 09:48:13,569 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-26 09:48:16,319 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-26 09:48:16,324 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-26 09:48:16,349 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-26 09:48:16,349 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-26 09:49:35,740 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251126_094808]: 所有女客户的平均存款和所有男客户的所有存款比谁的高？
+2025-11-26 09:49:50,067 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:49:50,092 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT 
+    'female_avg_deposit' AS comparison_type,
+    AVG(d.CUR_BAL + d.FIX_BAL) AS amount
+FROM customer_info c
+INNER JOIN deposit_business d ON c.CUST_NO = d.CUST_NO
+WHERE c.GENDER = '2'
+
+UNION ALL
+
+SELECT 
+    'male_total_deposit' AS comparison_type,
+    SUM(d.CUR_BAL + d.FIX_BAL) AS amount
+FROM customer_info c
+INNER JOIN deposit_business d ON c.CUST_NO = d.CUST_NO
+WHERE c.GENDER = '1';
+2025-11-26 09:49:53,390 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:49:53,391 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    'female_avg_deposit' AS comparison_type,
+    AVG(d.CUR_BAL + d.FIX_BAL) AS amount
+FROM customer_info c
+INNER JOIN deposit_business d ON c.CUST_NO = d.CUST_NO
+WHERE c.GENDER = '2'
+
+UNION ALL
+
+SELECT 
+    'male_total_deposit' AS comparison_type,
+    SUM(d.CUR_BAL + d.FIX_BAL) AS amount
+FROM customer_info c
+INNER JOIN deposit_business d ON c.CUST_NO = d.CUST_NO
+WHERE c.GENDER = '1';
+2025-11-26 09:49:55,078 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:49:55,082 - text2sql_module.text2sql_processor_langgraph - INFO - LLM验证结果格式不完整，使用基础验证结果
+2025-11-26 09:49:55,092 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-26 09:49:57,097 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:49:57,098 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-26 09:51:28,582 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251126_094808]: 你是不是没有把所有货币换算成人民币？
+2025-11-26 09:51:29,890 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:51:29,891 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 所有女客户的平均存款和所有男客户的所有存款比谁的高？
+         ...
+2025-11-26 09:51:49,826 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:51:49,828 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT 
+    GENDER,
+    AVG(CASE WHEN CCY_CD = 'CNY' THEN CUR_BAL + FIX_BAL
+                WHEN CCY_CD = 'USD' THEN (CUR_BAL + FIX_BAL) * 7
+                WHEN CCY_CD = 'EUR' THEN (CUR_BAL + FIX_BAL) * (7 / 0.9)
+                ELSE (CUR_BAL + FIX_BAL) END) AS avg_total_balance_cny,
+    SUM(CASE WHEN CCY_CD = 'CNY' THEN CUR_BAL + FIX_BAL
+              WHEN CCY_CD = 'USD' THEN (CUR_BAL + FIX_BAL) * 7
+              WHEN CCY_CD = 'EUR' THEN (CUR_BAL + FIX_BAL) * (7 / 0.9)
+              ELSE (CUR_BAL + FIX_BAL) END) AS total_balance_cny
+FROM deposit_business 
+JOIN customer_info ON deposit_business.CUST_NO = customer_info.CUST_NO
+GROUP BY GENDER;
+2025-11-26 09:51:55,028 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:51:55,030 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    GENDER,
+    AVG(CASE WHEN CCY_CD = 'CNY' THEN CUR_BAL + FIX_BAL
+             WHEN CCY_CD = 'USD' THEN (CUR_BAL + FIX_BAL) * 7
+             WHEN CCY_CD = 'EUR' THEN (CUR_BAL + FIX_BAL) * (7 / 0.9)
+             ELSE (CUR_BAL + FIX_BAL) * 1 END) AS avg_total_balance_cny,
+    SUM(CASE WHEN CCY_CD = 'CNY' THEN CUR_BAL + FIX_BAL
+             WHEN CCY_CD = 'USD' THEN (CUR_BAL + FIX_BAL) * 7
+             WHEN CCY_CD = 'EUR' THEN (CUR_BAL + FIX_BAL) * (7 / 0.9)
+             ELSE (CUR_BAL + FIX_BAL) * 1 END) AS total_balance_cny
+FROM deposit_business 
+JOIN customer_info ON deposit_business.CUST_NO = customer_info.CUST_NO
+GROUP BY GENDER;
+2025-11-26 09:51:56,889 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:51:56,893 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-26 09:52:04,031 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 09:52:04,033 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-26 10:24:07,920 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-26 10:24:11,180 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-26 10:24:11,495 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-26 10:24:13,923 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-26 10:24:13,926 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-26 10:24:13,941 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-26 10:24:13,941 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-26 10:24:53,670 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251126_102407]: 渠道活跃度评分大于80分的有哪些人？请列出来。
+2025-11-26 10:25:01,246 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 10:25:01,255 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT ci.CUST_NO, ci.CUST_NAM 
+FROM customer_info ci
+INNER JOIN customer_channel_preference ccp ON ci.CUST_NO = ccp.CUST_NO
+WHERE ccp.CHANNEL_ACTIVE_SCORE > 80;
+2025-11-26 10:25:03,434 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 10:25:03,435 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT ci.CUST_NO, ci.CUST_NAM 
+FROM customer_info ci
+INNER JOIN customer_channel_preference ccp ON ci.CUST_NO = ccp.CUST_NO
+WHERE ccp.CHANNEL_ACTIVE_SCORE > 80;
+2025-11-26 10:25:05,048 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 10:25:05,050 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-26 10:25:10,347 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-26 10:25:10,348 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果

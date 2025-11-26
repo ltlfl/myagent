@@ -68,6 +68,7 @@ CREATE_TABLE_SQLS = [
         RISK_LEVEL VARCHAR(2) NOT NULL COMMENT '客户风险等级（01-低，02-中，03-高）',
         CUST_STATUS VARCHAR(1) NOT NULL COMMENT '客户状态（0-正常，1-冻结，9-销户）',
         OPEN_ORG VARCHAR(10) NOT NULL COMMENT '开户机构代码',
+        CUST_TYPE VARCHAR(2) NOT NULL COMMENT '客户类型（"01-个人""02-企业"，用于筛选个人客户）',
         PRIMARY KEY (CUST_NO)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户信息表';
     """,
@@ -101,6 +102,7 @@ CREATE_TABLE_SQLS = [
         OPEN_DT CHAR(8) NOT NULL COMMENT '开户日期（YYYYMMDD）',
         LAST_TRN_DT CHAR(8) NOT NULL COMMENT '最后交易日期（YYYYMMDD）',
         MTH_AVG_BAL DECIMAL(18,2) NOT NULL COMMENT '月日均余额',
+        MATURITY_DT CHAR(8) COMMENT '定期存款到期日（用于产品到期集中度计算）',
         PRIMARY KEY (ACCT_NO),
         FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO),
         FOREIGN KEY (PROD_CD) REFERENCES product_info(PROD_CD)
@@ -129,6 +131,107 @@ CREATE_TABLE_SQLS = [
         FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO),
         FOREIGN KEY (PROD_CD) REFERENCES product_info(PROD_CD)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='贷款业务表';
+    """,
+    # 1. 机构与区域关联表
+    """
+    CREATE TABLE IF NOT EXISTS org_region (
+        ORG_CD VARCHAR(10) NOT NULL COMMENT '机构代码（关联customer_info.OPEN_ORG）',
+        BRANCH_NAME VARCHAR(50) NOT NULL COMMENT '分行名称（如 "烟台分行"）',
+        REGION VARCHAR(20) NOT NULL COMMENT '所属区域（如 "山东省"）',
+        PRIMARY KEY (ORG_CD)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='机构与区域关联表';
+    """,
+    # 2. 客户交易明细表
+    """
+    CREATE TABLE IF NOT EXISTS customer_transaction (
+        TRANS_ID VARCHAR(30) NOT NULL COMMENT '交易唯一标识',
+        CUST_NO VARCHAR(20) NOT NULL COMMENT '客户号（关联customer_info.CUST_NO）',
+        ACCT_NO VARCHAR(25) NOT NULL COMMENT '交易账户（关联deposit_business.ACCT_NO或新增信用卡/理财账户）',
+        TRANS_DT CHAR(8) NOT NULL COMMENT '交易日期（YYYYMMDD）',
+        TRANS_AMT DECIMAL(18,2) NOT NULL COMMENT '交易金额（需脱敏）',
+        TRANS_TYPE VARCHAR(10) NOT NULL COMMENT '交易类型（如 "存款""取款""转账"）',
+        CHANNEL VARCHAR(20) NOT NULL COMMENT '交易渠道（"手机银行""柜面""ATM""微信" 等）',
+        TRANS_STATUS VARCHAR(2) NOT NULL COMMENT '交易状态（"成功""失败"）',
+        PRIMARY KEY (TRANS_ID),
+        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO),
+        FOREIGN KEY (ACCT_NO) REFERENCES deposit_business(ACCT_NO)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户交易明细表';
+    """,
+    # 3. 客户月度余额表
+    """
+    CREATE TABLE IF NOT EXISTS customer_monthly_balance (
+        ID INT NOT NULL AUTO_INCREMENT COMMENT '自增主键',
+        CUST_NO VARCHAR(20) NOT NULL COMMENT '客户号',
+        ACCT_NO VARCHAR(25) NOT NULL COMMENT '账户号',
+        STAT_MONTH CHAR(6) NOT NULL COMMENT '统计月份（YYYYMM，如 202407）',
+        END_BAL DECIMAL(18,2) NOT NULL COMMENT '月末余额（需脱敏）',
+        BAL_CHANGE_RATE DECIMAL(6,4) NOT NULL COMMENT '环比余额变化率（自动计算）',
+        PRIMARY KEY (ID),
+        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO),
+        FOREIGN KEY (ACCT_NO) REFERENCES deposit_business(ACCT_NO)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户月度余额表';
+    """,
+    # 4. 客户产品持有汇总表
+    """
+    CREATE TABLE IF NOT EXISTS customer_product_hold (
+        CUST_NO VARCHAR(20) NOT NULL COMMENT '客户号',
+        PROD_COUNT INT NOT NULL COMMENT '持有产品总数（存款、贷款、理财、信用卡等）',
+        DEP_PROD_COUNT INT NOT NULL COMMENT '存款产品数量',
+        LN_PROD_COUNT INT NOT NULL COMMENT '贷款产品数量',
+        FIN_PROD_COUNT INT NOT NULL COMMENT '理财产品数量（新增类型）',
+        CC_PROD_COUNT INT NOT NULL COMMENT '信用卡数量（新增类型）',
+        EXPIRY_30D_AMT DECIMAL(18,2) NOT NULL COMMENT '未来 30 天内到期产品总金额（关联定期存款/理财到期日）',
+        PRIMARY KEY (CUST_NO),
+        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户产品持有汇总表';
+    """,
+    # 5. 客户渠道偏好表
+    """
+    CREATE TABLE IF NOT EXISTS customer_channel_preference (
+        CUST_NO VARCHAR(20) NOT NULL COMMENT '客户号',
+        MB_TRANS_RATE DECIMAL(6,4) NOT NULL COMMENT '手机银行交易占比（近 3 个月）',
+        COUNTER_TRANS_RATE DECIMAL(6,4) NOT NULL COMMENT '柜面交易占比（近 3 个月）',
+        CHANNEL_ACTIVE_SCORE INT NOT NULL COMMENT '渠道活跃度评分（0-100，综合各渠道频次）',
+        PRIMARY KEY (CUST_NO),
+        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户渠道偏好表';
+    """,
+    # 6. 营销活动与策略执行表
+    """
+    CREATE TABLE IF NOT EXISTS marketing_campaign (
+        CAMPAIGN_ID VARCHAR(20) NOT NULL COMMENT '活动唯一标识',
+        CUST_NO VARCHAR(20) NOT NULL COMMENT '目标客户号',
+        STRATEGY_TYPE VARCHAR(50) NOT NULL COMMENT '策略类型（如 "工资代发签约 + 活期理财"）',
+        PUSH_CHANNEL VARCHAR(20) NOT NULL COMMENT '推送渠道（"CRM 系统""手机银行"）',
+        EXECUTE_DT CHAR(8) NOT NULL COMMENT '执行日期',
+        RESPONSE_STATUS VARCHAR(20) NOT NULL COMMENT '客户响应（"接受""拒绝""未响应"）',
+        AUM_CHANGE DECIMAL(18,2) NOT NULL COMMENT '策略执行后 AUM 变动（需脱敏）',
+        PRIMARY KEY (CAMPAIGN_ID),
+        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='营销活动与策略执行表';
+    """,
+    # 7. 客户扩展信息表
+    """
+    CREATE TABLE IF NOT EXISTS customer_extend_info (
+        CUST_NO VARCHAR(20) NOT NULL COMMENT '客户号（关联customer_info.CUST_NO）',
+        MARITAL_STATUS VARCHAR(10) NOT NULL COMMENT '婚姻状况（"已婚""单身""离婚" 等）',
+        EDUCATION VARCHAR(20) NOT NULL COMMENT '教育程度（"高中""大学""研究生" 等）',
+        CREDIT_DEFAULT VARCHAR(1) NOT NULL COMMENT '信用违约记录（"是""否"）',
+        HOUSING_LOAN VARCHAR(1) NOT NULL COMMENT '住房贷款持有（"是""否"）',
+        SALARY_PAYMENT VARCHAR(1) NOT NULL COMMENT '是否签约工资代发（"是""否"）',
+        PRIMARY KEY (CUST_NO),
+        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户扩展信息表';
+    """,
+    # 8. 理财产品信息表
+    """
+    CREATE TABLE IF NOT EXISTS finance_product_info (
+        FIN_PROD_CD VARCHAR(20) NOT NULL COMMENT '理财代码',
+        FIN_PROD_NAM VARCHAR(100) NOT NULL COMMENT '产品名称',
+        RISK_LEVEL VARCHAR(2) NOT NULL COMMENT '风险等级（关联PROD_RISK_MAP）',
+        REDEMPTION_DT CHAR(8) NOT NULL COMMENT '赎回日期（用于到期集中度计算）',
+        PRIMARY KEY (FIN_PROD_CD)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='理财产品信息表';
     """
 ]
 
@@ -165,10 +268,12 @@ def generate_customer_info(count=50):
         cust_status = random.choice(["0", "1"])  # 大概率正常/冻结，少用销户
         # 开户机构
         open_org = f"11000{fake.random_int(1000, 9999)}"
+        # 客户类型
+        cust_type = random.choice(["01", "02"])
         
         data.append((
             cust_no, cust_nam, id_type, id_no, birth_dt, gender,
-            mobile_n, address, occup_cd, risk_level, cust_status, open_org
+            mobile_n, address, occup_cd, risk_level, cust_status, open_org, cust_type
         ))
     return data
 
@@ -223,10 +328,17 @@ def generate_deposit_business(cust_list, prod_list, count=80):
         last_trn_dt = fake.date_between(start_date=open_date, end_date="today").strftime("%Y%m%d")
         # 月日均余额
         mth_avg_bal = round(random.uniform(cur_bal * 0.5, cur_bal * 0.9) if cur_bal > 0 else fix_bal * 0.8, 2)
+        # 定期存款到期日（仅定期账户有）
+        if acct_type == "201":
+            # 根据产品期限计算到期日
+            prod_term = next((p[6] for p in prod_list if p[0] == prod_cd), 360)
+            maturity_dt = (open_date + timedelta(days=prod_term)).strftime("%Y%m%d")
+        else:
+            maturity_dt = None
         
         data.append((
             acct_no, cust_no, prod_cd, acct_type, acct_status, ccy_cd,
-            cur_bal, fix_bal, frozen_amt, open_dt, last_trn_dt, mth_avg_bal
+            cur_bal, fix_bal, frozen_amt, open_dt, last_trn_dt, mth_avg_bal, maturity_dt
         ))
     return data
 
@@ -278,6 +390,229 @@ def generate_loan_business(cust_list, prod_list, count=30):
         ))
     return data
 
+def generate_org_region(cust_list):
+    """生成机构与区域关联表数据"""
+    data = []
+    # 从客户信息中提取所有开户机构代码
+    org_codes = set(c[11] for c in cust_list)
+    
+    # 区域和分行映射
+    region_branch_map = {
+        "山东省": ["烟台分行", "青岛分行", "济南分行"],
+        "江苏省": ["南京分行", "苏州分行", "无锡分行"],
+        "浙江省": ["杭州分行", "宁波分行", "温州分行"],
+        "广东省": ["深圳分行", "广州分行", "东莞分行"],
+        "北京市": ["北京分行", "北京海淀支行", "北京朝阳支行"]
+    }
+    
+    # 将机构代码分配到不同区域和分行
+    regions = list(region_branch_map.keys())
+    branch_index = 0
+    
+    for org_code in org_codes:
+        region = regions[branch_index % len(regions)]
+        branches = region_branch_map[region]
+        branch_name = branches[branch_index % len(branches)]
+        branch_index += 1
+        
+        data.append((org_code, branch_name, region))
+    
+    return data
+
+def generate_customer_transaction(cust_list, deposit_list, count=500):
+    """生成客户交易明细表数据"""
+    data = []
+    cust_nos = [c[0] for c in cust_list]
+    acct_nos = [d[0] for d in deposit_list]
+    trans_types = ["存款", "取款", "转账", "消费", "理财购买", "还款"]
+    channels = ["手机银行", "柜面", "ATM", "微信", "支付宝", "网银"]
+    trans_statuses = ["成功", "失败"]
+    
+    for i in range(count):
+        # 交易ID
+        trans_id = f"TR{fake.random_int(20240000000000000000, 20249999999999999999)}"
+        # 关联客户
+        cust_no = random.choice(cust_nos)
+        # 关联账户
+        acct_no = random.choice(acct_nos)
+        # 交易日期（最近1年内）
+        trans_dt = fake.date_between(start_date="-1y", end_date="today").strftime("%Y%m%d")
+        # 交易金额（脱敏：保留量级，隐藏具体值）
+        # 这里生成的是实际金额，在查询时会进行脱敏处理
+        trans_amt = round(random.uniform(100.00, 100000.00), 2)
+        # 交易类型
+        trans_type = random.choice(trans_types)
+        # 交易渠道
+        channel = random.choice(channels)
+        # 交易状态
+        trans_status = random.choice(trans_statuses)
+        
+        data.append((
+            trans_id, cust_no, acct_no, trans_dt, trans_amt,
+            trans_type, channel, trans_status
+        ))
+    return data
+
+def generate_customer_monthly_balance(cust_list, deposit_list, months=12):
+    """生成客户月度余额表数据"""
+    data = []
+    cust_acct_map = {d[1]: [] for d in deposit_list}
+    for d in deposit_list:
+        cust_acct_map[d[1]].append(d[0])
+    
+    # 获取最近N个月的月份列表
+    current_date = datetime.now()
+    months_list = []
+    for i in range(months-1, -1, -1):
+        month_date = current_date - timedelta(days=30*i)
+        months_list.append(month_date.strftime("%Y%m"))
+    
+    for cust_no, acct_nos in cust_acct_map.items():
+        for acct_no in acct_nos[:2]:  # 每个客户最多关联2个账户
+            prev_balance = 0.0
+            for stat_month in months_list:
+                # 月末余额（脱敏处理）
+                end_bal = round(random.uniform(1000.00, 100000.00), 2)
+                # 环比余额变化率
+                if prev_balance > 0:
+                    bal_change_rate = round((end_bal - prev_balance) / prev_balance, 4)
+                else:
+                    bal_change_rate = 0.0
+                prev_balance = end_bal
+                
+                data.append((
+                    None,  # ID (自增)
+                    cust_no, acct_no, stat_month, end_bal, bal_change_rate
+                ))
+    return data
+
+def generate_customer_product_hold(cust_list, deposit_list, loan_list):
+    """生成客户产品持有汇总表数据"""
+    data = []
+    cust_nos = [c[0] for c in cust_list]
+    
+    # 统计每个客户的产品持有情况
+    for cust_no in cust_nos:
+        # 存款产品数量
+        dep_prod_count = len([d for d in deposit_list if d[1] == cust_no])
+        # 贷款产品数量
+        ln_prod_count = len([l for l in loan_list if l[2] == cust_no])
+        # 理财产品数量（模拟）
+        fin_prod_count = random.randint(0, 3)
+        # 信用卡数量（模拟）
+        cc_prod_count = random.randint(0, 2)
+        # 总产品数量
+        prod_count = dep_prod_count + ln_prod_count + fin_prod_count + cc_prod_count
+        # 未来30天内到期产品总金额（模拟）
+        expiry_30d_amt = round(random.uniform(0.00, 500000.00), 2)
+        
+        data.append((
+            cust_no, prod_count, dep_prod_count, ln_prod_count,
+            fin_prod_count, cc_prod_count, expiry_30d_amt
+        ))
+    return data
+
+def generate_customer_channel_preference(cust_list):
+    """生成客户渠道偏好表数据"""
+    data = []
+    cust_nos = [c[0] for c in cust_list]
+    
+    for cust_no in cust_nos:
+        # 手机银行交易占比
+        mb_trans_rate = round(random.uniform(0.1, 0.9), 4)
+        # 柜面交易占比
+        counter_trans_rate = round(random.uniform(0.05, 0.5), 4)
+        # 确保占比合理（这里简化处理，不要求总和为1）
+        # 渠道活跃度评分
+        channel_active_score = random.randint(0, 100)
+        
+        data.append((
+            cust_no, mb_trans_rate, counter_trans_rate, channel_active_score
+        ))
+    return data
+
+def generate_marketing_campaign(cust_list, count=100):
+    """生成营销活动与策略执行表数据"""
+    data = []
+    cust_nos = [c[0] for c in cust_list]
+    strategy_types = [
+        "工资代发签约 + 活期理财", "定期存款优惠", "信用卡推广", 
+        "个人贷款优惠", "理财产品推荐", "保险产品推荐"
+    ]
+    push_channels = ["CRM系统", "手机银行", "短信", "电话"]
+    response_statuses = ["接受", "拒绝", "未响应"]
+    
+    for i in range(count):
+        # 活动ID
+        campaign_id = f"MC{fake.random_int(202400000000, 202499999999)}"
+        # 目标客户
+        cust_no = random.choice(cust_nos)
+        # 策略类型
+        strategy_type = random.choice(strategy_types)
+        # 推送渠道
+        push_channel = random.choice(push_channels)
+        # 执行日期
+        execute_dt = fake.date_between(start_date="-6m", end_date="today").strftime("%Y%m%d")
+        # 客户响应
+        response_status = random.choice(response_statuses)
+        # AUM变动（脱敏）
+        aum_change = round(random.uniform(-50000.00, 200000.00), 2)
+        
+        data.append((
+            campaign_id, cust_no, strategy_type, push_channel,
+            execute_dt, response_status, aum_change
+        ))
+    return data
+
+def generate_customer_extend_info(cust_list):
+    """生成客户扩展信息表数据"""
+    data = []
+    cust_nos = [c[0] for c in cust_list]
+    marital_statuses = ["已婚", "单身", "离婚", "丧偶"]
+    educations = ["高中", "专科", "大学", "研究生", "博士"]
+    
+    for cust_no in cust_nos:
+        # 婚姻状况
+        marital_status = random.choice(marital_statuses)
+        # 教育程度
+        education = random.choice(educations)
+        # 信用违约记录
+        credit_default = random.choice(["是", "否"])
+        # 住房贷款持有
+        housing_loan = random.choice(["是", "否"])
+        # 是否签约工资代发
+        salary_payment = random.choice(["是", "否"])
+        
+        data.append((
+            cust_no, marital_status, education, credit_default,
+            housing_loan, salary_payment
+        ))
+    return data
+
+def generate_finance_product_info(count=10):
+    """生成理财产品信息表数据"""
+    data = []
+    finance_products = [
+        "天天宝活期理财", "稳健理财30天", "稳健理财90天",
+        "进取理财180天", "进取理财365天", "指数增强理财",
+        "债券基金理财", "混合基金理财", "股票基金理财", "QDII理财"
+    ]
+    
+    for i in range(min(count, len(finance_products))):
+        # 理财代码
+        fin_prod_cd = f"FIN{20240001 + i}"
+        # 产品名称
+        fin_prod_nam = finance_products[i]
+        # 风险等级
+        risk_level = random.choice(list(PROD_RISK_MAP.keys()))
+        # 赎回日期
+        redemption_dt = fake.date_between(start_date="+1m", end_date="+3y").strftime("%Y%m%d")
+        
+        data.append((
+            fin_prod_cd, fin_prod_nam, risk_level, redemption_dt
+        ))
+    return data
+
 # -------------------------- 数据导入函数 --------------------------
 def import_data_to_mysql():
     try:
@@ -286,6 +621,23 @@ def import_data_to_mysql():
         cursor = conn.cursor()
         print("数据库连接成功！")
 
+        # 先删除已存在的表，确保新字段能被正确创建
+        # 按照依赖关系，先删除有外键约束的表
+        tables_to_drop = [
+            'customer_transaction', 'customer_monthly_balance', 'customer_product_hold',
+            'customer_channel_preference', 'marketing_campaign', 'customer_extend_info',
+            'org_region', 'deposit_business', 'loan_business', 'finance_product_info',
+            'product_info', 'customer_info'
+        ]
+        
+        for table in tables_to_drop:
+            try:
+                cursor.execute(f"DROP TABLE IF EXISTS {table}")
+                print(f"表 {table} 已删除")
+            except Exception as e:
+                print(f"删除表 {table} 时出错: {e}")
+        conn.commit()
+        
         # 1. 创建表
         for sql in CREATE_TABLE_SQLS:
             cursor.execute(sql)
@@ -293,16 +645,24 @@ def import_data_to_mysql():
         print("所有表创建成功！")
 
         # 2. 生成数据
-        customer_data = generate_customer_info(count=50)
+        customer_data = generate_customer_info(count=100)
         product_data = generate_product_info()
         deposit_data = generate_deposit_business(customer_data, product_data, count=80)
         loan_data = generate_loan_business(customer_data, product_data, count=30)
+        finance_product_data = generate_finance_product_info(10)
+        org_region_data = generate_org_region(customer_data)
+        customer_transaction_data = generate_customer_transaction(customer_data, deposit_data, 500)
+        customer_monthly_balance_data = generate_customer_monthly_balance(customer_data, deposit_data, 12)
+        customer_product_hold_data = generate_customer_product_hold(customer_data, deposit_data, loan_data)
+        customer_channel_preference_data = generate_customer_channel_preference(customer_data)
+        marketing_campaign_data = generate_marketing_campaign(customer_data, 100)
+        customer_extend_info_data = generate_customer_extend_info(customer_data)
         print("虚拟数据生成成功！")
 
         # 3. 插入客户信息
         cust_sql = """
-        INSERT INTO customer_info (CUST_NO, CUST_NAM, ID_TYPE, ID_NO, BIRTH_DT, GENDER, MOBILE_N, ADDRESS, OCCUP_CD, RISK_LEVEL, CUST_STATUS, OPEN_ORG)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO customer_info (CUST_NO, CUST_NAM, ID_TYPE, ID_NO, BIRTH_DT, GENDER, MOBILE_N, ADDRESS, OCCUP_CD, RISK_LEVEL, CUST_STATUS, OPEN_ORG, CUST_TYPE)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.executemany(cust_sql, customer_data)
         print(f"插入客户信息 {len(customer_data)} 条")
@@ -317,8 +677,8 @@ def import_data_to_mysql():
 
         # 5. 插入存款业务
         deposit_sql = """
-        INSERT INTO deposit_business (ACCT_NO, CUST_NO, PROD_CD, ACCT_TYPE, ACCT_STATUS, CCY_CD, CUR_BAL, FIX_BAL, FROZEN_AMT, OPEN_DT, LAST_TRN_DT, MTH_AVG_BAL)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO deposit_business (ACCT_NO, CUST_NO, PROD_CD, ACCT_TYPE, ACCT_STATUS, CCY_CD, CUR_BAL, FIX_BAL, FROZEN_AMT, OPEN_DT, LAST_TRN_DT, MTH_AVG_BAL, MATURITY_DT)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
         cursor.executemany(deposit_sql, deposit_data)
         print(f"插入存款业务 {len(deposit_data)} 条")
@@ -330,6 +690,72 @@ def import_data_to_mysql():
         """
         cursor.executemany(loan_sql, loan_data)
         print(f"插入贷款业务 {len(loan_data)} 条")
+        
+        # 7. 插入理财产品信息
+        finance_prod_sql = """
+        INSERT INTO finance_product_info (FIN_PROD_CD, FIN_PROD_NAM, RISK_LEVEL, REDEMPTION_DT)
+        VALUES (%s, %s, %s, %s)
+        """
+        cursor.executemany(finance_prod_sql, finance_product_data)
+        print(f"插入理财产品信息 {len(finance_product_data)} 条")
+        
+        # 8. 插入机构与区域关联数据
+        org_region_sql = """
+        INSERT INTO org_region (ORG_CD, BRANCH_NAME, REGION)
+        VALUES (%s, %s, %s)
+        """
+        cursor.executemany(org_region_sql, org_region_data)
+        print(f"插入机构与区域关联数据 {len(org_region_data)} 条")
+        
+        # 9. 插入客户交易明细数据
+        customer_transaction_sql = """
+        INSERT INTO customer_transaction (TRANS_ID, CUST_NO, ACCT_NO, TRANS_DT, TRANS_AMT, TRANS_TYPE, CHANNEL, TRANS_STATUS)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.executemany(customer_transaction_sql, customer_transaction_data)
+        print(f"插入客户交易明细数据 {len(customer_transaction_data)} 条")
+        
+        # 10. 插入客户月度余额数据
+        customer_monthly_balance_sql = """
+        INSERT INTO customer_monthly_balance (CUST_NO, ACCT_NO, STAT_MONTH, END_BAL, BAL_CHANGE_RATE)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        # 移除ID字段（自增）
+        monthly_balance_data = [(row[1], row[2], row[3], row[4], row[5]) for row in customer_monthly_balance_data]
+        cursor.executemany(customer_monthly_balance_sql, monthly_balance_data)
+        print(f"插入客户月度余额数据 {len(customer_monthly_balance_data)} 条")
+        
+        # 11. 插入客户产品持有汇总数据
+        customer_product_hold_sql = """
+        INSERT INTO customer_product_hold (CUST_NO, PROD_COUNT, DEP_PROD_COUNT, LN_PROD_COUNT, FIN_PROD_COUNT, CC_PROD_COUNT, EXPIRY_30D_AMT)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.executemany(customer_product_hold_sql, customer_product_hold_data)
+        print(f"插入客户产品持有汇总数据 {len(customer_product_hold_data)} 条")
+        
+        # 12. 插入客户渠道偏好数据
+        customer_channel_preference_sql = """
+        INSERT INTO customer_channel_preference (CUST_NO, MB_TRANS_RATE, COUNTER_TRANS_RATE, CHANNEL_ACTIVE_SCORE)
+        VALUES (%s, %s, %s, %s)
+        """
+        cursor.executemany(customer_channel_preference_sql, customer_channel_preference_data)
+        print(f"插入客户渠道偏好数据 {len(customer_channel_preference_data)} 条")
+        
+        # 13. 插入营销活动数据
+        marketing_campaign_sql = """
+        INSERT INTO marketing_campaign (CAMPAIGN_ID, CUST_NO, STRATEGY_TYPE, PUSH_CHANNEL, EXECUTE_DT, RESPONSE_STATUS, AUM_CHANGE)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """
+        cursor.executemany(marketing_campaign_sql, marketing_campaign_data)
+        print(f"插入营销活动数据 {len(marketing_campaign_data)} 条")
+        
+        # 14. 插入客户扩展信息数据
+        customer_extend_info_sql = """
+        INSERT INTO customer_extend_info (CUST_NO, MARITAL_STATUS, EDUCATION, CREDIT_DEFAULT, HOUSING_LOAN, SALARY_PAYMENT)
+        VALUES (%s, %s, %s, %s, %s, %s)
+        """
+        cursor.executemany(customer_extend_info_sql, customer_extend_info_data)
+        print(f"插入客户扩展信息数据 {len(customer_extend_info_data)} 条")
 
         # 提交事务
         conn.commit()
