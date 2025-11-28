@@ -47,6 +47,8 @@ def default_state():
         "explanation": "",
         "session_id": "default",
         "entities": None,
+        "target_sql": "",  # 保持向后兼容
+        "target_sql_part": None,  # 与Text2SQLState保持一致
         "conversation_history": None,
         "validation_result": None,
         "refined_validation_result": None,
@@ -59,6 +61,8 @@ class Text2SQLState(TypedDict):
     enhanced_query: str
     generated_sql: str
     initial_sql: str
+    target_sql: str
+    target_sql_part: str
     refined_sql: str
     execution_result: Dict[str, Any]
     explanation: str
@@ -134,12 +138,15 @@ class Text2SQLProcessorLangGraph:
                     logger.warning("使用默认SQL生成提示词")
                 
                 # 创建包含自定义提示词的SQL查询链
+                # 目前没有对大数据库信息进行优化，只有显示写入前10个表信息
                 human_prompt = """
                 数据库信息:
                 {table_info}
                 
                 用户问题:
                 {input}
+                
+                {target_sql_part}
                 
                 最多返回{top_k}条结果
                 """
@@ -150,6 +157,7 @@ class Text2SQLProcessorLangGraph:
                 ])
                 
                 # 只有当模型初始化成功时才创建查询链
+                # 语言模型，数据库连接，提示词，最多返回结果数，通过这几个生成SQL查询
                 if self.model:
                     self.query_chain = create_sql_query_chain(
                         self.model, 
@@ -192,8 +200,7 @@ class Text2SQLProcessorLangGraph:
             try:
                 # 直接从prompts_manager获取货币优化提示词
                 huobiyouhua_prompt = prompts_manager.get_prompt('text2sql', 'huobiyouhua')
-                print("--------------------------")
-                print(huobiyouhua_prompt)
+            
                 if not huobiyouhua_prompt or not isinstance(huobiyouhua_prompt, str):
                     huobiyouhua_prompt = "请优化以下SQL查询。"
                     logger.warning("使用默认SQL优化提示词")
@@ -274,7 +281,7 @@ class Text2SQLProcessorLangGraph:
                 print(f"大模型改写后的问题: {enhanced_question}")
                 
                 # 只提取用户的历史记录，并取最近3条
-                user_history = [item for item in conversation_history if item['role'] == 'user'][-3:]
+                user_history = [item for item in conversation_history if item['role'] == 'user'][-5:]
                 if user_history:
                     # 构建上下文提示词
                     history_text = "\n".join([f"历史问题 {i+1}: {item['content']}" for i, item in enumerate(user_history)])
@@ -292,7 +299,10 @@ class Text2SQLProcessorLangGraph:
             if entities and 'order_by' in entities and entities['order_by']:
                 enhanced_question = f"{enhanced_question} 请按{entities['order_by']}排序"
             
-            return {'enhanced_query': enhanced_question}
+            return {
+                    'enhanced_query': enhanced_question,
+                    'target_sql_part': state.get('target_sql')  # 传递给Text2SQLState中定义的target_sql_part字段
+                    }
         except Exception as e:
             logger.error(f"查询增强失败: {e}")
             return {'error': f'查询增强失败: {str(e)}', 'success': False}
@@ -301,9 +311,18 @@ class Text2SQLProcessorLangGraph:
         """生成SQL节点"""
         try:
             enhanced_question = state.get('enhanced_query', '')
+            target_sql = state.get('target_sql_part', None)  # 从target_sql_part字段获取
+            print(f"_generate_sql_node对照组获取目标SQL: {target_sql}")
+            
+            # 准备提示词参数
+            prompt_params = {
+                "question": enhanced_question,
+                "top_k": None,
+                "target_sql_part": "请在原始SQL的结构上根据问题直接修改，格式生成新的SQL语句。要求两个SQL语句是严格的对照组，除了关键问题有区别外所有结构必须保持完全一致。原始SQL:\n" + target_sql if target_sql else ""
+            }
             
             # 生成初始SQL查询
-            sql_query = self.query_chain.invoke({"question": enhanced_question, "top_k": None})
+            sql_query = self.query_chain.invoke(prompt_params)
             cleaned_sql = self._clean_sql_query(sql_query)
             
             logger.info(f"生成的SQL: {cleaned_sql}")
@@ -601,7 +620,7 @@ class Text2SQLProcessorLangGraph:
             tables = self.db.get_usable_table_names()
             table_info = {}
             
-            for table in tables[:10]:  # 限制获取前10个表的信息
+            for table in tables[:15]:  # 限制获取前10个表的信息
                 try:
                     schema = self.db.get_table_info([table])
                     table_info[table] = {
@@ -700,7 +719,7 @@ class Text2SQLProcessorLangGraph:
             logger.error(f"SQL验证过程出错: {e}")
             return self.validate_sql(sql)
     
-    def process_query(self, question: str, session_id: str = 'default', entities: Dict[str, Any] = None, conversation_history: List[Dict] = None) -> Dict[str, Any]:
+    def process_query(self, question: str,target_sql: str = None, session_id: str = 'default', entities: Dict[str, Any] = None, conversation_history: List[Dict] = None) -> Dict[str, Any]:
         """
         处理自然语言查询（保持与原始接口相同）
         
@@ -717,11 +736,14 @@ class Text2SQLProcessorLangGraph:
             logger.info(f"处理查询 [{session_id}]: {question}")
             
             # 初始化状态
+            print(f"process_query有没有接受到这个target_sql: {target_sql}")
             initial_state = default_state()
             initial_state.update({
                 'original_query': question,
                 'session_id': session_id,
                 'entities': entities,
+                'target_sql': target_sql,  # 保持向后兼容
+                'target_sql_part': target_sql,  # 同时设置到Text2SQLState中定义的字段
                 'conversation_history': conversation_history
             })
             

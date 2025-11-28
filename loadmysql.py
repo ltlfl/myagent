@@ -1,4 +1,5 @@
 import pymysql
+import time
 from faker import Faker
 import random
 from datetime import datetime, timedelta
@@ -24,7 +25,7 @@ ID_TYPE_MAP = {"01": "身份证", "02": "护照"}
 GENDER_MAP = {"1": "男", "2": "女"}
 # 客户风险等级
 RISK_LEVEL_MAP = {"01": "低", "02": "中", "03": "高"}
-# 客户状态
+# 客户状态 - 标识客户整体关系状态，与账户状态概念不同，建议保留
 CUST_STATUS_MAP = {"0": "正常", "1": "冻结", "9": "销户"}
 # 产品大类
 PROD_CAT_MAP = {"DEP": "存款", "LN": "贷款"}
@@ -41,7 +42,7 @@ ACCT_TYPE_MAP = {"101": "活期", "201": "定期"}
 # 账户状态
 ACCT_STATUS_MAP = {"0": "正常", "1": "冻结", "2": "挂失", "9": "销户"}
 # 货币代码
-CCY_CD_MAP = ["CNY", "USD", "EUR"]
+CCY_CD_MAP = ["CNY"]
 # 贷款类型
 LN_TYPE_MAP = {"PDL": "个人贷款", "CDL": "企业贷款"}
 # 还款方式
@@ -157,20 +158,7 @@ CREATE_TABLE_SQLS = [
         FOREIGN KEY (ACCT_NO) REFERENCES deposit_business(ACCT_NO)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户交易明细表';
     """,
-    # 3. 客户月度余额表
-    """
-    CREATE TABLE IF NOT EXISTS customer_monthly_balance (
-        ID INT NOT NULL AUTO_INCREMENT COMMENT '自增主键',
-        CUST_NO VARCHAR(20) NOT NULL COMMENT '客户号',
-        ACCT_NO VARCHAR(25) NOT NULL COMMENT '账户号',
-        STAT_MONTH CHAR(6) NOT NULL COMMENT '统计月份（YYYYMM，如 202407）',
-        END_BAL DECIMAL(18,2) NOT NULL COMMENT '月末余额（需脱敏）',
-        BAL_CHANGE_RATE DECIMAL(6,4) NOT NULL COMMENT '环比余额变化率（自动计算）',
-        PRIMARY KEY (ID),
-        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO),
-        FOREIGN KEY (ACCT_NO) REFERENCES deposit_business(ACCT_NO)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='客户月度余额表';
-    """,
+
     # 4. 客户产品持有汇总表
     """
     CREATE TABLE IF NOT EXISTS customer_product_hold (
@@ -232,6 +220,21 @@ CREATE_TABLE_SQLS = [
         REDEMPTION_DT CHAR(8) NOT NULL COMMENT '赎回日期（用于到期集中度计算）',
         PRIMARY KEY (FIN_PROD_CD)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='理财产品信息表';
+    """,
+    # 9. 用户月存款变化信息表
+    """
+    CREATE TABLE IF NOT EXISTS customer_monthly_deposit_change (
+        ID INT AUTO_INCREMENT NOT NULL COMMENT '主键ID',
+        CUST_NO VARCHAR(20) NOT NULL COMMENT '客户号（关联customer_info.CUST_NO）',
+        MONTH VARCHAR(7) NOT NULL COMMENT '月份（格式：2024/MM）',
+        DEPOSIT_AMT DECIMAL(18,2) NOT NULL COMMENT '月存款金额（已脱敏）',
+        CHANGE_AMT DECIMAL(18,2) NOT NULL COMMENT '环比变化金额（已脱敏）',
+        CHANGE_RATE DECIMAL(10,4) NOT NULL COMMENT '环比变化率',
+        CREATE_TIME DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+        PRIMARY KEY (ID),
+        FOREIGN KEY (CUST_NO) REFERENCES customer_info(CUST_NO),
+        UNIQUE KEY idx_cust_month (CUST_NO, MONTH)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户月存款变化信息表';
     """
 ]
 
@@ -240,8 +243,11 @@ def generate_customer_info(count=50):
     """生成客户信息"""
     data = []
     for i in range(count):
-        # 客户号（20位字符以内：C + 19位数字）
-        cust_no = f"C{fake.random_int(1000000000000000000, 9999999999999999999)}"
+        # 客户号（20位字符以内：C + 时间戳后11位 + 随机6位数字）
+        # 使用时间戳+随机数方式生成更唯一的ID，避免重复
+        timestamp = str(int(time.time() * 1000))[-11:]  # 取时间戳的后11位
+        random_suffix = str(fake.random_int(100000, 999999))  # 6位随机数
+        cust_no = f"C{timestamp}{random_suffix}"[:20]  # 确保不超过20位
         # 姓名
         cust_nam = fake.name()
         # 证件类型
@@ -453,38 +459,7 @@ def generate_customer_transaction(cust_list, deposit_list, count=500):
         ))
     return data
 
-def generate_customer_monthly_balance(cust_list, deposit_list, months=12):
-    """生成客户月度余额表数据"""
-    data = []
-    cust_acct_map = {d[1]: [] for d in deposit_list}
-    for d in deposit_list:
-        cust_acct_map[d[1]].append(d[0])
-    
-    # 获取最近N个月的月份列表
-    current_date = datetime.now()
-    months_list = []
-    for i in range(months-1, -1, -1):
-        month_date = current_date - timedelta(days=30*i)
-        months_list.append(month_date.strftime("%Y%m"))
-    
-    for cust_no, acct_nos in cust_acct_map.items():
-        for acct_no in acct_nos[:2]:  # 每个客户最多关联2个账户
-            prev_balance = 0.0
-            for stat_month in months_list:
-                # 月末余额（脱敏处理）
-                end_bal = round(random.uniform(1000.00, 100000.00), 2)
-                # 环比余额变化率
-                if prev_balance > 0:
-                    bal_change_rate = round((end_bal - prev_balance) / prev_balance, 4)
-                else:
-                    bal_change_rate = 0.0
-                prev_balance = end_bal
-                
-                data.append((
-                    None,  # ID (自增)
-                    cust_no, acct_no, stat_month, end_bal, bal_change_rate
-                ))
-    return data
+
 
 def generate_customer_product_hold(cust_list, deposit_list, loan_list):
     """生成客户产品持有汇总表数据"""
@@ -613,6 +588,61 @@ def generate_finance_product_info(count=10):
         ))
     return data
 
+def generate_customer_monthly_deposit_change(cust_list, months=12):
+    """生成用户月存款变化信息表数据，并进行脱敏处理"""
+    data = []
+    cust_nos = [c[0] for c in cust_list]
+    
+    # 生成2024年12个月的月份列表
+    months_list = [f"2024/{str(i).zfill(2)}" for i in range(1, months+1)]
+    
+    for cust_no in cust_nos:
+        # 为每个客户生成一个基础存款金额，范围在10000-500000之间
+        base_deposit = round(random.uniform(10000.00, 500000.00), 2)
+        prev_deposit = base_deposit
+        
+        for month in months_list:
+            # 生成当月的随机波动因子，在-0.15到0.2之间
+            fluctuation = random.uniform(-0.15, 0.2)
+            
+            # 计算当月存款金额
+            deposit_amt = round(prev_deposit * (1 + fluctuation), 2)
+            
+            # 确保金额不会低于0
+            deposit_amt = max(0.01, deposit_amt)
+            
+            # 计算变化金额
+            change_amt = round(deposit_amt - prev_deposit, 2)
+            
+            # 计算变化率
+            if prev_deposit > 0:
+                change_rate = round(change_amt / prev_deposit, 4)
+            else:
+                change_rate = 0.0
+            
+            # 对存款金额和变化金额进行脱敏处理（保留整数部分的前两位，其余用*替代）
+            # 脱敏规则：保留量级，隐藏具体值
+            # 例如：12367 -> 12***，3213221 -> 32*****，123234 -> 12****
+            # 注意：实际存储的是原始数值，这里我们在生成时对数值进行脱敏处理
+            # 脱敏处理：保留前两位有效数字，其余替换为随机数
+            # 这里我们采用乘随机因子的方式进行脱敏，但保持整体分布
+            deposit_amt_desensitized = round(deposit_amt * random.uniform(0.95, 1.05), 2)
+            change_amt_desensitized = round(change_amt * random.uniform(0.95, 1.05), 2)
+            
+            data.append((
+                None,  # ID (自增)
+                cust_no,
+                month,
+                deposit_amt_desensitized,
+                change_amt_desensitized,
+                change_rate
+            ))
+            
+            # 更新上个月的存款金额，用于下月计算
+            prev_deposit = deposit_amt
+    
+    return data
+
 # -------------------------- 数据导入函数 --------------------------
 def import_data_to_mysql():
     try:
@@ -622,12 +652,28 @@ def import_data_to_mysql():
         print("数据库连接成功！")
 
         # 先删除已存在的表，确保新字段能被正确创建
-        # 按照依赖关系，先删除有外键约束的表
+        # 按照依赖关系重新排序，先删除引用其他表的表，再删除被引用的表
         tables_to_drop = [
-            'customer_transaction', 'customer_monthly_balance', 'customer_product_hold',
-            'customer_channel_preference', 'marketing_campaign', 'customer_extend_info',
-            'org_region', 'deposit_business', 'loan_business', 'finance_product_info',
-            'product_info', 'customer_info'
+            # 第一层：引用其他表的表
+            'customer_monthly_balance',  # 引用customer_info和deposit_business
+            'customer_transaction',  # 引用customer_info和deposit_business
+            'customer_product_hold',  # 可能引用customer_info、deposit_business和loan_business
+            
+            # 第二层：业务表
+            'deposit_business',  # 引用customer_info和product_info
+            'loan_business',  # 引用customer_info和product_info
+            
+            # 第三层：其他业务相关表
+            'customer_channel_preference',  # 引用customer_info
+            'marketing_campaign',  # 引用customer_info
+            'customer_extend_info',  # 引用customer_info
+            'customer_monthly_deposit_change',  # 引用customer_info
+            'org_region',  # 独立表
+            'finance_product_info',  # 独立表
+            
+            # 最后删除基础表
+            'product_info',  # 被多个表引用
+            'customer_info'  # 被多个表引用
         ]
         
         for table in tables_to_drop:
@@ -652,11 +698,12 @@ def import_data_to_mysql():
         finance_product_data = generate_finance_product_info(10)
         org_region_data = generate_org_region(customer_data)
         customer_transaction_data = generate_customer_transaction(customer_data, deposit_data, 500)
-        customer_monthly_balance_data = generate_customer_monthly_balance(customer_data, deposit_data, 12)
+
         customer_product_hold_data = generate_customer_product_hold(customer_data, deposit_data, loan_data)
         customer_channel_preference_data = generate_customer_channel_preference(customer_data)
         marketing_campaign_data = generate_marketing_campaign(customer_data, 100)
         customer_extend_info_data = generate_customer_extend_info(customer_data)
+        customer_monthly_deposit_change_data = generate_customer_monthly_deposit_change(customer_data, 12)
         print("虚拟数据生成成功！")
 
         # 3. 插入客户信息
@@ -715,16 +762,7 @@ def import_data_to_mysql():
         cursor.executemany(customer_transaction_sql, customer_transaction_data)
         print(f"插入客户交易明细数据 {len(customer_transaction_data)} 条")
         
-        # 10. 插入客户月度余额数据
-        customer_monthly_balance_sql = """
-        INSERT INTO customer_monthly_balance (CUST_NO, ACCT_NO, STAT_MONTH, END_BAL, BAL_CHANGE_RATE)
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        # 移除ID字段（自增）
-        monthly_balance_data = [(row[1], row[2], row[3], row[4], row[5]) for row in customer_monthly_balance_data]
-        cursor.executemany(customer_monthly_balance_sql, monthly_balance_data)
-        print(f"插入客户月度余额数据 {len(customer_monthly_balance_data)} 条")
-        
+
         # 11. 插入客户产品持有汇总数据
         customer_product_hold_sql = """
         INSERT INTO customer_product_hold (CUST_NO, PROD_COUNT, DEP_PROD_COUNT, LN_PROD_COUNT, FIN_PROD_COUNT, CC_PROD_COUNT, EXPIRY_30D_AMT)
@@ -756,6 +794,16 @@ def import_data_to_mysql():
         """
         cursor.executemany(customer_extend_info_sql, customer_extend_info_data)
         print(f"插入客户扩展信息数据 {len(customer_extend_info_data)} 条")
+        
+        # 15. 插入客户月存款变化信息数据
+        customer_monthly_deposit_change_sql = """
+        INSERT INTO customer_monthly_deposit_change (CUST_NO, MONTH, DEPOSIT_AMT, CHANGE_AMT, CHANGE_RATE)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+        # 移除ID字段（自增）
+        deposit_change_data = [(row[1], row[2], row[3], row[4], row[5]) for row in customer_monthly_deposit_change_data]
+        cursor.executemany(customer_monthly_deposit_change_sql, deposit_change_data)
+        print(f"插入客户月存款变化信息数据 {len(customer_monthly_deposit_change_data)} 条")
 
         # 提交事务
         conn.commit()

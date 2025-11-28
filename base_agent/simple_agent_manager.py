@@ -183,6 +183,14 @@ class SimpleAgentManager:
             self.agent_registry.register_agent('query', 'intent_parser', IntentParser())
             self.agent_registry.register_agent('text2sql', 'processor', text2sql_processor)
             
+            # 尝试注册客户画像智能体（如果存在）
+            try:
+                from customer_profile_agent import customer_profile_analyzer
+                self.agent_registry.register_agent('customer_profile', 'analyzer', customer_profile_analyzer)
+                logger.info("客户画像智能体注册成功")
+            except ImportError as e:
+                logger.warning(f"客户画像智能体导入失败，可能尚未创建: {e}")
+            
             # 注册意图处理器
             self.agent_registry.register_intent_handler('data_retrieval', self._handle_data_query_with_text2sql)
             self.agent_registry.register_intent_handler('metadata_query', self._handle_metadata_query)
@@ -192,8 +200,48 @@ class SimpleAgentManager:
             
             self.agent_registry.register_intent_handler('data_ranking', self._handle_data_query_with_text2sql)
             self.agent_registry.register_intent_handler('data_count', self._handle_data_query_with_text2sql)
+            
+            # 注册客户画像相关意图处理器
+            self.agent_registry.register_intent_handler('customer_segmentation', self._handle_customer_profile_query)
+            self.agent_registry.register_intent_handler('customer_profiling', self._handle_customer_profile_query)
+            self.agent_registry.register_intent_handler('customer_risk_analysis', self._handle_customer_profile_query)
+            self.agent_registry.register_intent_handler('customer_insight', self._handle_customer_profile_query)
+            
         except ImportError as e:
             logger.warning(f"代理导入失败: {e}")
+    
+    @BaseErrorHandler.handle_error
+    def _handle_customer_profile_query(self, query: str, session_id: str) -> Dict[str, Any]:
+        """处理客户画像相关查询"""
+        # 获取客户画像分析器代理
+        profile_analyzer = self.agent_registry.get_agent('customer_profile', 'analyzer')
+        if not profile_analyzer:
+            return self.error_handler.create_error_response(
+                "客户画像分析器不可用", session_id, agent='customer_profile')
+        
+        # 调用客户画像分析器进行处理
+        try:
+            result = profile_analyzer.analyze(query, session_id)
+            
+            # 添加到对话历史
+            self.session_manager.add_to_history(
+                session_id, 'user', query,
+                {'query_type': 'customer_profile', 'intent': 'customer_profiling'}
+            )
+            self.session_manager.add_to_history(
+                session_id, 'agent', f"客户画像分析结果: {result.get('message', '')}",
+                {'query_type': 'customer_profile', 'result': result}
+            )
+            
+            return {
+                'success': True,
+                'intent': 'customer_profiling',
+                'analysis_result': result,
+                'session_id': session_id
+            }
+        except Exception as e:
+            return self.error_handler.create_error_response(
+                f"客户画像分析失败: {str(e)}", session_id, agent='customer_profile')
     
     @BaseErrorHandler.handle_error
     def process_query(self, query: str, session_id: str = 'default') -> Dict[str, Any]:

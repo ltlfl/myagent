@@ -15,6 +15,7 @@ class PromptsManager:
                 'explanation': self._create_explanation_prompt(),
                 'huobiyouhua': self._create_huobiyouhua_prompt(),
                 'sql_generation': self._create_sql_generation_prompt(),
+                'Problem_Analysis_prompt': self._Problem_Analysis_prompt(),
                 'response_generation': self._create_response_generation_prompt()
             },
             # 查询意图解析相关提示词
@@ -47,47 +48,23 @@ class PromptsManager:
 你是一个专业的SQL查询生成助手。请根据用户的自然语言查询和数据库模式信息，生成准确的SQL查询语句。
 
 要求：
-0. 考虑用户历史问题与当前问题的相关性
+0. 如果提供了原始SQL作为参考，请严格仿照其结构和格式生成新的SQL语句，确保两个SQL语句成为严格的对照组。表结构、JOIN方式、字段顺序、SELECT字段、GROUP BY、ORDER BY等所有结构必须完全一致。WHERE条件中，除了需要修改的关键条件（如金额阈值）外，其他条件（如交易类型、状态等）必须完全相同。
 1. 生成标准SQL语法，兼容MySQL
 2. 确保查询安全，避免SQL注入
 3. 使用正确的表名和字段名
 4. 添加适当的WHERE条件进行过滤
 5. 对于聚合查询，使用正确的GROUP BY
-6. 返回JSON格式结果
+6. 如果提供了原始SQL作为参考，请优先遵循人类提示词中的要求，生成符合要求的SQL语句
 
 重要规则：
 - **当用户查询中包含"所有信息"、"完整信息"、"全部信息"等关键词时，必须执行以下操作**：
   1. 使用INNER JOIN关联所有相关表
   2. 返回所有表中的所有字段（使用*）
   3. 确保通过外键正确关联所有表
-- **当处理涉及不同货币的金额比较（如存款最多、金额最高等）时，必须考虑货币换算**：
-  1. 假设有以下汇率：1美元(USD) = 7人民币(CNY)，1欧元(EUR) = 7/0.9人民币(CNY)
-  2. 请使用CASE语句将所有货币金额转换为同一币种（建议转换为人民币CNY）后再进行比较
-  3. 对于存款最多等查询，必须先转换货币单位，然后再计算总额并排序
+- **当生成对照SQL时，除了明确需要修改的条件外，其他所有条件必须与原始SQL完全一致，特别是交易类型等业务条件**
 
 返回格式：
-{{
-    "sql": "生成的SQL语句",
-    "explanation": "SQL解释说明",
-    "tables_used": ["使用的表名"],
-    "fields_used": ["使用的字段名"],
-    "confidence": 0.9,
-    "alternatives": ["替代SQL语句1", "替代SQL语句2"]
-}}
-
-    请仔细分析用户需求和数据库结构，生成准确的SQL查询。
-
-    特别示例 - 查询特定客户的所有关联信息：
-    当用户提问"给出客户编号：C1896179073998708285的客户的所有表的信息"时，请生成如下SQL：
-    SELECT *
-    FROM customer_info
-    INNER JOIN deposit_business ON customer_info.CUST_NO = deposit_business.CUST_NO
-    INNER JOIN loan_business ON customer_info.CUST_NO = loan_business.CUST_NO
-    INNER JOIN product_info ON (
-        deposit_business.PROD_CD = product_info.PROD_CD OR 
-        loan_business.PROD_CD = product_info.PROD_CD
-    )
-    WHERE customer_info.CUST_NO = 'C1896179073998708285';
+如果没有提供原始SQL作为参考，请返回SQL语句本身；如果提供了原始SQL作为参考，请直接返回SQL语句，不要返回JSON格式。
         """
     
     def _create_response_generation_prompt(self) -> str:
@@ -203,11 +180,7 @@ class PromptsManager:
             你是一个专业的SQL优化专家，请对以下生成的SQL进行优化，重点关注问题和SQL语句是否匹配。
             你需要先判断SQL语句的含义，然后和用户问题进行匹配，确保SQL语句的执行结果符合用户的需求。
             如果SQL语句和用户问题不匹配，你需要根据用户问题重新生成SQL语句。
-            如果涉及到货币换算，你需要根据用户问题和数据库表结构，判断是否需要进行货币换算。
-            请使用正确的汇率进行货币换算：
-            - 1美元 = 7人民币
-            - 1欧元 = 7/0.9人民币
-            
+           
             请分析以下内容：
             - 用户问题: {question}
             - 数据库表结构: {table_info}
@@ -221,6 +194,54 @@ class PromptsManager:
             
             请直接输出优化后的SQL语句，不要包含其他解释。
             """
-
+    def _Problem_Analysis_prompt(self) -> PromptTemplate:
+        """设计一个问题分析智能体，用于客户圈选和数据准备。你返回的数据精准而全面，确保客户分析的科学性。"""
+        template = """
+            请你对用户问题：{question}进行以下分析：
+            1.分析当前的问题所需要的客户数据字段。
+            2.如果客户没有指明返回字段，默认返回所有表中关联的客户数据字段
+            3.根据客户数据字段，圈选符合条件的客户
+            4.根据符合条件的客户圈选对照组
+            5.请严格按照以下JSON格式输出，不要包含任何其他文字：
+            {{
+                "analysis_type": "分析类型",
+                "required_fields": ["需要的字段1", "需要的字段2", ...],
+                "target_criteria": {{
+                    "条件1": "值1",
+                    "条件2": "值2",
+                    ...
+                }},
+                "control_criteria": {{
+                    "条件1": "值1",
+                    "条件2": "值2",
+                    ...
+                }},
+                "target_query_question": "用于调用text2sql的目标客群查询问题",
+                "control_query_question": "用于调用text2sql的对照组查询问题"
+            }}
+            
+            例如：
+            问题：分析烟台分行存款流失超过50%且月末余额<1万元的个人客户
+            输出格式示例：
+            {{
+                "analysis_type": "存款流失分析",
+                "required_fields": ["客户ID", "客户类型", "客户状态", "存款流失率", "月末余额", "存款金额", "存款时间"],
+                "target_criteria": {{
+                    "客户类型": "个人客户",
+                    "客户状态": "正常",
+                    "存款流失率": ">50%",
+                    "月末余额": "<1万元"
+                }},
+                "control_criteria": {{
+                    "客户类型": "个人客户",
+                    "客户状态": "正常",
+                    "存款流失率": "<=50%",
+                    "匹配条件": "客户存款金额与目标客群相同且存款时间在目标客群存款时间范围内"
+                }},
+                "target_query_question": "查询客户类型为个人客户，客户状态为正常，客户存款流失率超过50%，客户月末余额<1万元的客户数据，返回客户ID、客户类型、客户状态、存款流失率、月末余额、存款金额、存款时间等字段",
+                "control_query_question": "查询客户类型为个人客户，客户状态为正常，客户存款流失率在50%以下，并且客户存款金额与目标客群相同、存款时间在目标客群存款时间范围内的客户数据，返回客户ID、客户类型、客户状态、存款流失率、月末余额、存款金额、存款时间等字段"
+            }}
+        """
+        return PromptTemplate.from_template(template)
 # 创建全局提示词管理器实例
 prompts_manager = PromptsManager()
