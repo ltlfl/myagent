@@ -8875,3 +8875,106 @@ LIMIT 1;
 2025-11-28 16:23:20,621 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
 2025-11-28 16:23:23,911 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
 2025-11-28 16:23:23,912 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-28 17:16:02,506 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-28 17:16:05,809 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-28 17:16:06,039 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-28 17:16:08,663 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-28 17:16:08,666 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-28 17:16:08,686 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-28 17:16:08,687 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-28 17:16:45,882 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251128_171602]: 客户中浙江人占全体客户比例是多少
+2025-11-28 17:16:48,660 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:16:48,667 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT 
+    COUNT(CASE WHEN org_region.REGION = '浙江省' THEN 1 END) * 100.0 / COUNT(*) AS zhejiang_customer_ratio
+FROM 
+    customer_info
+    LEFT JOIN org_region ON customer_info.OPEN_ORG = org_region.ORG_CD;
+2025-11-28 17:16:52,078 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:16:52,079 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    COUNT(CASE WHEN org_region.REGION = '浙江省' THEN 1 END) * 100.0 / COUNT(*) AS zhejiang_customer_ratio
+FROM 
+    customer_info
+    LEFT JOIN org_region ON customer_info.OPEN_ORG = org_region.ORG_CD
+WHERE 
+    customer_info.CUST_TYPE = '01';
+2025-11-28 17:16:53,219 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:16:53,223 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-28 17:16:55,003 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:16:55,005 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-28 17:17:41,898 - logger_set - INFO - 日志系统初始化完成，将记录到myagent.log文件
+2025-11-28 17:17:44,987 - root - INFO - 从 C:\Lt\xunishuju\myagent\text2sql_module\.env 加载环境变量成功
+2025-11-28 17:17:45,240 - text2sql_module.text2sql_processor_langgraph - INFO - 数据库连接初始化成功
+2025-11-28 17:17:47,651 - text2sql_module.text2sql_processor_langgraph - INFO - 语言模型初始化成功
+2025-11-28 17:17:47,653 - text2sql_module.text2sql_processor_langgraph - INFO - 所有提示词初始化成功
+2025-11-28 17:17:47,668 - text2sql_module.text2sql_processor_langgraph - INFO - LangGraph工作流初始化成功
+2025-11-28 17:17:47,668 - text2sql_module.text2sql_processor_langgraph - INFO - Text2SQL处理器初始化完成，模型: qwen-plus
+2025-11-28 17:17:52,404 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251128_171741]: 客户中浙江人占全体客户比例是多少
+2025-11-28 17:17:55,366 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:17:55,373 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT 
+    COUNT(CASE WHEN org_region.REGION = '浙江省' THEN 1 END) * 100.0 / COUNT(*) AS zhejiang_customer_ratio
+FROM 
+    customer_info
+    LEFT JOIN org_region ON customer_info.OPEN_ORG = org_region.ORG_CD;
+2025-11-28 17:17:57,972 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:17:57,974 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    COUNT(CASE WHEN org_region.REGION = '浙江省' THEN 1 END) * 100.0 / COUNT(*) AS zhejiang_customer_ratio
+FROM 
+    customer_info
+    LEFT JOIN org_region ON customer_info.OPEN_ORG = org_region.ORG_CD
+WHERE 
+    customer_info.CUST_TYPE = '01';
+2025-11-28 17:18:00,094 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:18:00,097 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-28 17:18:00,821 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:18:00,824 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-28 17:18:38,377 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251128_171741]: 客户中安徽人占全体客户比例是多少
+2025-11-28 17:18:38,995 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:18:38,997 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 客户中浙江人占全体客户比例是多少
+                   ...
+2025-11-28 17:18:42,227 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:18:42,228 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT 
+    ROUND(
+        COUNT(CASE WHEN o.REGION = '安徽省' THEN 1 END) * 100.0 / COUNT(*), 
+    2) AS Anhui_customer_ratio
+FROM customer_info c
+JOIN org_region o ON c.OPEN_ORG = o.ORG_CD;
+2025-11-28 17:18:44,623 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:18:44,624 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    ROUND(
+        COUNT(CASE WHEN o.REGION = '安徽省' THEN 1 END) * 100.0 / COUNT(*), 
+    2) AS Anhui_customer_ratio
+FROM customer_info c
+JOIN org_region o ON c.OPEN_ORG = o.ORG_CD;
+2025-11-28 17:18:46,990 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:18:46,997 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-28 17:18:47,882 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:18:47,884 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果
+2025-11-28 17:25:40,683 - text2sql_module.text2sql_processor_langgraph - INFO - 处理查询 [cli_session_20251128_171741]: 客户中联系地址是在安徽省的占全体客户比例是多少
+2025-11-28 17:25:41,522 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:25:41,526 - text2sql_module.text2sql_processor_langgraph - INFO - 将用户历史记录作为上下文提示词传递给大模型: 
+                        上下文信息：
+                        历史问题 1: 客户中浙江人占全体客户比例是多少
+历史问题 2: 客户中安徽人占全体客户...
+2025-11-28 17:25:45,581 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:25:45,583 - text2sql_module.text2sql_processor_langgraph - INFO - 生成的SQL: SELECT 
+    COUNT(DISTINCT CASE 
+        WHEN ci.ADDRESS LIKE '%安徽省%' AND (org.REGION IS NULL OR org.REGION != '安徽省') 
+        THEN ci.CUST_NO 
+    END) * 100.0 / COUNT(DISTINCT ci.CUST_NO) AS percentage
+FROM 
+    customer_info ci
+LEFT JOIN 
+    org_region org 
+ON 
+    ci.OPEN_ORG = org.ORG_CD;
+2025-11-28 17:25:47,825 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:25:47,826 - text2sql_module.text2sql_processor_langgraph - INFO - 优化后的SQL: SELECT 
+    COUNT(DISTINCT CASE WHEN ci.ADDRESS LIKE '%安徽省%' THEN ci.CUST_NO END) * 100.0 / COUNT(DISTINCT ci.CUST_NO) AS percentage
+FROM 
+    customer_info ci;
+2025-11-28 17:25:50,114 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:25:50,117 - text2sql_module.text2sql_processor_langgraph - INFO - SQL执行成功，返回1行结果
+2025-11-28 17:25:51,035 - httpx - INFO - HTTP Request: POST https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions "HTTP/1.1 200 OK"
+2025-11-28 17:25:51,036 - text2sql_module.text2sql_processor_langgraph - INFO - 查询处理成功，返回0行结果

@@ -142,12 +142,9 @@ class Text2SQLProcessorLangGraph:
                 human_prompt = """
                 数据库信息:
                 {table_info}
-                
                 用户问题:
                 {input}
-                
                 {target_sql_part}
-                
                 最多返回{top_k}条结果
                 """
                 
@@ -179,11 +176,10 @@ class Text2SQLProcessorLangGraph:
                 explanation_template = prompts_manager.get_prompt('text2sql', 'explanation')
                 if not explanation_template:
                     # 如果获取失败，创建默认模板
-                    
+                    logger.warning("解释提示词模板为空，使用默认模板")
                     explanation_template = ChatPromptTemplate.from_template(
                         "请基于以下信息提供解释:\n问题: {question}\nSQL: {sql_query}\n结果: {query_result}\n原始结果: {raw_result}"
                     )
-                    logger.warning("使用默认解释提示词模板")
                 
                 # 只有当模型初始化成功时才创建解释链
                 if self.model:
@@ -194,8 +190,7 @@ class Text2SQLProcessorLangGraph:
                     logger.warning("模型未初始化成功，无法创建解释链")
             except Exception as e:
                 logger.error(f"解释提示词初始化失败: {e}")
-                self.explanation_chain = None
-            
+                self.explanation_chain = None     
             # SQL优化提示词 - 来自prompts_manager.text2sql.huobiyouhua
             try:
                 # 直接从prompts_manager获取货币优化提示词
@@ -209,9 +204,7 @@ class Text2SQLProcessorLangGraph:
                 self.react_prompt_template = ChatPromptTemplate.from_template(
                     huobiyouhua_prompt
                 )
-                logger.debug("SQL优化提示词模板初始化成功")
             except Exception as e:
-                logger.error(f"SQL优化提示词初始化失败: {e}")
                 self.react_prompt_template = None
             
             logger.info("所有提示词初始化成功")
@@ -265,14 +258,12 @@ class Text2SQLProcessorLangGraph:
             question = state.get('original_query', '')
             conversation_history = state.get('conversation_history')
             entities = state.get('entities')
-            
             enhanced_question = question
             
             # 1. 处理会话历史
             if conversation_history:
                 # 大模型处理历史对话
                 history_text = "\n".join([f"{item['role']}: {item['content']}" for item in conversation_history])
-                
                 prompt_text = prompts_manager.put_history_to_question()
                 # 构建完整的提示信息
                 full_prompt = f"{prompt_text}\n\n{history_text}\n\n当前问题: {question}\n请根据对话历史重写当前问题，确保包含所有必要的上下文信息。"
@@ -280,7 +271,7 @@ class Text2SQLProcessorLangGraph:
                 enhanced_question = llm_response.content
                 print(f"大模型改写后的问题: {enhanced_question}")
                 
-                # 只提取用户的历史记录，并取最近3条
+                # 只提取用户的历史记录，并取最近5条
                 user_history = [item for item in conversation_history if item['role'] == 'user'][-5:]
                 if user_history:
                     # 构建上下文提示词
@@ -734,6 +725,7 @@ class Text2SQLProcessorLangGraph:
         """
         try:
             logger.info(f"处理查询 [{session_id}]: {question}")
+            print(f"检查历史记录: {conversation_history}")
             
             # 初始化状态
             print(f"process_query有没有接受到这个target_sql: {target_sql}")

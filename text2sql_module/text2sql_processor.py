@@ -187,6 +187,7 @@ class Text2SQLProcessor:
         """
         try:
             logger.info(f"处理查询 [{session_id}]: {question}")
+            print(f"检查历史记录: {conversation_history}")
 
             # 大模型处理历史对话
             history_text = ""

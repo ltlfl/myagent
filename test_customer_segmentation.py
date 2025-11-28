@@ -4,7 +4,7 @@
 import os
 import sys
 import logging
-
+from huaxiang.CustomerSegmentation import CustomerSegmentationLangGraph
 # 设置日志级别
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -19,15 +19,8 @@ def test_customer_segmentation():
     try:
         logger.info("开始测试Customer Segmentation智能体...")
         
-        # 导入Customer Segmentation智能体
-        from huaxiang.CustomerSegmentation import CustomerSegmentationLangGraph
-        
-        logger.info("成功导入CustomerSegmentationLangGraph")
-        
         # 初始化智能体
         agent = CustomerSegmentationLangGraph()
-        
-        logger.info("成功初始化CustomerSegmentationLangGraph")
         
         # 检查Text2SQLProcessor是否正确初始化
         if hasattr(agent, 'text2sql_processor') and agent.text2sql_processor is not None:
@@ -52,6 +45,7 @@ def test_customer_segmentation():
                 logger.warning("数据库连接未成功初始化，将使用模拟模式")
             
             logger.info("开始执行查询处理...")
+            
             result = agent.process_query(test_query)
             
             if result:
