@@ -281,9 +281,19 @@ class HuaXiangProcessorLangGraph:
                 prompt_text = prompts_manager.put_history_to_question()
                 # 构建完整的提示信息
                 full_prompt = f"{prompt_text}\n\n{history_text}\n\n当前问题: {question}\n请根据对话历史重写当前问题，确保包含所有必要的上下文信息。"
-                llm_response = self.model.invoke([HumanMessage(content=full_prompt)])
-                enhanced_question = llm_response.content
-                logger.info(f"大模型改写后的问题: {enhanced_question}")
+                try:
+                    llm_response = self.model.invoke([HumanMessage(content=full_prompt)])
+                    enhanced_question = llm_response.content
+                    logger.info(f"大模型改写后的问题: {enhanced_question}")
+                except Exception as e:
+                    logger.error(f"模型调用失败: {e}")
+                    # 检查是否为API相关错误
+                    error_str = str(e).lower()
+                    api_error = any(keyword in error_str for keyword in ["api", "key", "quota", "limit", "timeout", "authentication", "auth", "invalid key"])
+                    if api_error:
+                        return {'error': '模型调用失败，可能是API密钥配置错误或账户额度不足，请检查API设置或联系管理员', 'success': False}
+                    else:
+                        return {'error': f'模型调用失败: {str(e)}', 'success': False}
                 
                 # 只提取用户的历史记录，并取最近5条
                 user_history = [item for item in conversation_history if item['role'] == 'user'][-5:]
@@ -567,6 +577,17 @@ class HuaXiangProcessorLangGraph:
                 'raw_result': raw_result
             }
             
+            # 检查查询结果是否为空，且不是最后一次重试
+            retry_count = state.get('retry_count', 0)
+            if row_count == 0 and retry_count < 2:  # 最多重试2次空结果
+                logger.info(f"查询结果为空，尝试调整查询条件（第{retry_count + 1}次重试）")
+                # 设置空结果标识，以便在_should_retry_after_error中处理
+                state['empty_result'] = True
+                # 更新重试计数
+                state['retry_count'] = retry_count + 1
+                # 调用智能重试机制，分析空结果并生成更宽松的查询条件
+                return self._retry_with_error_analysis(state, '查询结果为空')
+            
             return {
                 'execution_result': execution_result,
                 'row_count': row_count
@@ -613,48 +634,83 @@ class HuaXiangProcessorLangGraph:
                 logger.warning(f"解析表信息JSON失败: {e}")
                 table_info_str = ""  # 如果解析失败，使用空字符串
             
-            # 构建更智能的错误分析提示词
-            error_analysis_prompt = f"""
-                你是一个SQL专家，需要分析SQL执行错误并智能修正SQL语句。
+            # 检查是否是空结果错误
+            is_empty_result = '查询结果为空' in error_message
+            
+            if is_empty_result:
+                logger.info("检测到空结果错误，尝试生成更宽松的查询条件")
+                # 构建更宽松的查询提示词
+                error_analysis_prompt = f"""
+                    你是一个SQL专家，需要分析查询结果为空的情况并生成更宽松的查询条件。
 
-                原始问题：{original_query}
+                    原始问题：{original_query}
 
-                失败的SQL语句：{sql_query}
+                    原始SQL语句：{sql_query}
 
-                执行错误信息：{error_message}
+                    当前问题：查询结果为空
 
-                {table_info_str}
+                    {table_info_str}
 
-                请仔细分析错误信息，识别具体的错误类型，并基于以下策略修正SQL语句：
+                    请仔细分析原始SQL语句，基于以下策略生成更宽松的查询条件：
 
-                常见错误类型及修正策略：
-                1. 字段不存在错误（如Unknown column）：
-                - 检查字段名拼写是否正确
-                - 检查表别名是否正确（如ci.OPEN_DT中的ci是否对应正确的表）
-                - 根据语义选择最合适的字段名
-                - 如果字段不存在但语义相近，选择最接近的字段
+                    宽松化策略：
+                    1. 减少过滤条件：移除一些非必要的WHERE条件，特别是那些可能过于严格的条件
+                    2. 调整比较操作符：将精确匹配（=）改为模糊匹配（LIKE）或范围匹配（IN）
+                    3. 放宽数值范围：扩大日期、金额等数值字段的查询范围
+                    4. 调整聚合条件：如果有HAVING子句，降低聚合条件的阈值
+                    5. 移除排序和限制：如果有LIMIT子句，移除或增加限制数量
 
-                2. 表不存在错误：
-                - 检查表名拼写是否正确
-                - 检查表是否在可用表列表中
-                - 根据查询语义选择最合适的表
+                    宽松化原则：
+                    - 保持查询的核心语义不变
+                    - 只调整可能导致结果为空的条件部分
+                    - 确保修正后的SQL能够正确执行
+                    - 优先选择最可能返回结果的宽松化方案
 
-                3. 语法错误：
-                - 检查SQL语法是否符合标准
-                - 修正括号、引号等语法问题
-                - 确保关键字使用正确
+                    请直接返回修正后的SQL语句，不要添加任何解释：
+                """
+            else:
+                # 构建更智能的错误分析提示词
+                error_analysis_prompt = f"""
+                    你是一个SQL专家，需要分析SQL执行错误并智能修正SQL语句。
 
-                4. 权限错误：
-                - 确保查询是只读操作（SELECT、SHOW、DESCRIBE）
-                - 避免使用危险操作
+                    原始问题：{original_query}
 
-                修正原则：
-                - 保持查询的原始语义不变
-                - 只修正错误部分，不要改变查询逻辑
-                - 确保修正后的SQL能够正确执行
-                - 优先选择语义最接近的修正方案
+                    失败的SQL语句：{sql_query}
 
-                请直接返回修正后的SQL语句，不要添加任何解释：
+                    执行错误信息：{error_message}
+
+                    {table_info_str}
+
+                    请仔细分析错误信息，识别具体的错误类型，并基于以下策略修正SQL语句：
+
+                    常见错误类型及修正策略：
+                    1. 字段不存在错误（如Unknown column）：
+                    - 检查字段名拼写是否正确
+                    - 检查表别名是否正确（如ci.OPEN_DT中的ci是否对应正确的表）
+                    - 根据语义选择最合适的字段名
+                    - 如果字段不存在但语义相近，选择最接近的字段
+
+                    2. 表不存在错误：
+                    - 检查表名拼写是否正确
+                    - 检查表是否在可用表列表中
+                    - 根据查询语义选择最合适的表
+
+                    3. 语法错误：
+                    - 检查SQL语法是否符合标准
+                    - 修正括号、引号等语法问题
+                    - 确保关键字使用正确
+
+                    4. 权限错误：
+                    - 确保查询是只读操作（SELECT、SHOW、DESCRIBE）
+                    - 避免使用危险操作
+
+                    修正原则：
+                    - 保持查询的原始语义不变
+                    - 只修正错误部分，不要改变查询逻辑
+                    - 确保修正后的SQL能够正确执行
+                    - 优先选择语义最接近的修正方案
+
+                    请直接返回修正后的SQL语句，不要添加任何解释：
                 """
             
             # 调用大模型分析错误并修正SQL

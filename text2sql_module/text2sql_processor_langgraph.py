@@ -134,13 +134,17 @@ class Text2SQLProcessorLangGraph:
                 # 直接从prompts_manager获取SQL生成系统提示词
                 sql_generation_prompt = prompts_manager.get_prompt('text2sql', 'sql_generation')
                 if not sql_generation_prompt or not isinstance(sql_generation_prompt, str):
-                    sql_generation_prompt = """你是一个SQL专家，请根据用户问题和数据库信息生成正确的SQL查询。
+                    sql_generation_prompt = """你是一个MySQL SQL专家，请根据用户问题和数据库信息生成正确的SQL查询。
                     
                     重要要求：
                     1. 必须严格使用数据库表结构中显示的实际字段名，不要使用通用的字段名猜测
                     2. 仔细检查表结构中的字段名，确保字段名完全匹配
                     3. 如果字段名包含大写字母或特殊字符，必须原样使用
                     4. 不要使用customer_id、user_id等通用字段名，必须使用表结构中的实际字段名
+                    5. MySQL特定规则：当需要使用IN子查询且子查询包含LIMIT子句时，必须使用派生表加JOIN的方式替代IN子查询
+                    6. MySQL特定规则：所有派生表必须添加别名
+                    7. MySQL特定规则：避免使用SELECT *，只查询必要的字段
+                    8. MySQL特定规则：确保表名和别名之间有空格
                     """
                     logger.warning("使用增强的SQL生成提示词")
                 
@@ -284,9 +288,19 @@ class Text2SQLProcessorLangGraph:
                 prompt_text = prompts_manager.put_history_to_question()
                 # 构建完整的提示信息
                 full_prompt = f"{prompt_text}\n\n{history_text}\n\n当前问题: {question}\n请根据对话历史重写当前问题，确保包含所有必要的上下文信息。"
-                llm_response = self.model.invoke([HumanMessage(content=full_prompt)])
-                enhanced_question = llm_response.content
-                logger.info(f"大模型改写后的问题: {enhanced_question}")
+                try:
+                    llm_response = self.model.invoke([HumanMessage(content=full_prompt)])
+                    enhanced_question = llm_response.content
+                    logger.info(f"大模型改写后的问题: {enhanced_question}")
+                except Exception as e:
+                    logger.error(f"模型调用失败: {e}")
+                    # 检查是否为API相关错误
+                    error_str = str(e).lower()
+                    api_error = any(keyword in error_str for keyword in ["api", "key", "quota", "limit", "timeout", "authentication", "auth", "invalid key"])
+                    if api_error:
+                        return {'error': '模型调用失败，可能是API密钥配置错误或账户额度不足，请检查API设置或联系管理员', 'success': False}
+                    else:
+                        return {'error': f'模型调用失败: {str(e)}', 'success': False}
                 
                 # 只提取用户的历史记录，并取最近5条
                 user_history = [item for item in conversation_history if item['role'] == 'user'][-5:]
@@ -320,6 +334,8 @@ class Text2SQLProcessorLangGraph:
         try:
             enhanced_question = state.get('enhanced_query', '')
             target_sql = state.get('target_sql_part', None)  # 从target_sql_part字段获取
+            empty_result = state.get('empty_result', False)  # 检查是否因为结果为空而重试
+            retry_count = state.get('retry_count', 0)
             logger.info(f"_generate_sql_node对照组获取目标SQL: {target_sql}")
             
             # 获取数据库表信息，确保LLM使用正确的字段名
@@ -334,8 +350,48 @@ class Text2SQLProcessorLangGraph:
                 "table_info": f"\n\n数据库表结构信息：\n{table_info_json_str}" if table_info_json_str else ""
             }
             
-            # 生成初始SQL查询
-            sql_query = self.query_chain.invoke(prompt_params)
+            # 如果是因为查询结果为空而重试，添加额外提示要求LLM放松查询条件
+            if empty_result:
+                logger.info(f"检测到空结果重试，添加放松查询条件的提示（第{retry_count}次重试）")
+                
+                # 如果有目标SQL，在原始目标SQL的基础上放松条件
+                if target_sql:
+                    prompt_params['target_sql_part'] += "\n\n【重要提示】上一次查询结果为空，请在保持查询意图的前提下，放松查询条件（例如：放宽时间范围、减少过滤条件、增加模糊匹配等）以获取更多结果。"
+                else:
+                    # 如果没有目标SQL，直接在问题中添加提示
+                    prompt_params['question'] = f"{enhanced_question}\n\n【重要提示】上一次查询结果为空，请在保持查询意图的前提下，放松查询条件（例如：放宽时间范围、减少过滤条件、增加模糊匹配等）以获取更多结果。"
+            
+            # 生成初始SQL查询 - 添加重试机制
+            max_retries = 3
+            retry_count = 0
+            sql_query = None
+            
+            while retry_count < max_retries:
+                try:
+                    sql_query = self.query_chain.invoke(prompt_params)
+                    logger.debug("生成初始SQL查询成功")
+                    break
+                except Exception as invoke_error:
+                    retry_count += 1
+                    logger.error(f"模型调用失败 (尝试 {retry_count}/{max_retries}): {invoke_error}")
+                    
+                    # 检查是否为API相关错误
+                    error_str = str(invoke_error).lower()
+                    api_error = any(keyword in error_str for keyword in ["api", "key", "quota", "limit", "timeout", "authentication", "auth", "invalid key"])
+                    if api_error:
+                        logger.warning("检测到API相关错误，可能是API密钥配置或账户额度问题")
+                        return {'error': '模型调用失败，可能是API密钥配置错误或账户额度不足，请检查API设置或联系管理员', 'success': False}
+                    
+                    # 不是API错误，等待后重试
+                    if retry_count < max_retries:
+                        import time
+                        time.sleep(1)  # 等待1秒后重试
+            
+            # 处理模型调用失败的情况
+            if sql_query is None:
+                logger.error("模型调用多次失败，无法生成SQL")
+                return {'error': '模型调用失败，无法生成SQL', 'success': False}
+            
             cleaned_sql = self._clean_sql_query(sql_query)
             
             logger.info(f"生成的SQL: {cleaned_sql}")
@@ -462,9 +518,40 @@ class Text2SQLProcessorLangGraph:
                 请严格使用数据库表结构中实际存在的字段名，确保SQL语法正确，并与用户问题匹配。请直接输出优化后的SQL语句。""")
                                 ]
                             
-            # 调用模型生成优化的SQL
-            llm_response = self.model.invoke(messages)
-            logger.debug("使用优化提示词生成SQL")
+            # 调用模型生成优化的SQL - 添加重试机制
+            max_retries = 3
+            retry_count = 0
+            llm_response = None
+            
+            while retry_count < max_retries:
+                try:
+                    llm_response = self.model.invoke(messages)
+                    logger.debug("使用优化提示词生成SQL成功")
+                    break
+                except Exception as invoke_error:
+                    retry_count += 1
+                    logger.error(f"模型调用失败 (尝试 {retry_count}/{max_retries}): {invoke_error}")
+                    
+                    # 检查是否为API相关错误
+                    if "API" in str(invoke_error) or "key" in str(invoke_error).lower() or "quota" in str(invoke_error).lower():
+                        logger.warning("检测到API相关错误，可能是API密钥配置或账户额度问题")
+                        # 不再重试，直接处理
+                        break
+                    
+                    # 不是API错误，等待后重试
+                    if retry_count < max_retries:
+                        import time
+                        time.sleep(1)  # 等待1秒后重试
+            
+            # 处理模型调用失败的情况
+            if llm_response is None:
+                logger.error("模型调用多次失败，无法生成优化SQL")
+                # 使用原始SQL作为后备
+                fallback_sql = state.get('initial_sql', state.get('generated_sql', ''))
+                if fallback_sql:
+                    logger.info(f"使用后备SQL: {fallback_sql[:100]}...")
+                return {'refined_sql': fallback_sql, 'error': '模型调用失败，无法优化SQL', 'success': False}
+            
             refined_sql = llm_response.content
             
             # 清洗生成的SQL
@@ -562,13 +649,27 @@ class Text2SQLProcessorLangGraph:
             row_count = len(data) if isinstance(data, list) else 1
             
            
-            
             execution_result = {
                 'success': True,
                 'data': data,
                 'row_count': row_count,
                 'raw_result': raw_result
             }
+            
+            # 检查查询结果是否为空，且不是最后一次重试
+            retry_count = state.get('retry_count', 0)
+            if row_count == 0 and retry_count < 2:  # 最多重试2次空结果
+                logger.info(f"查询结果为空，尝试调整查询条件（第{retry_count + 1}次重试）")
+                # 设置空结果标识，以便在_should_retry_after_error中处理
+                state['empty_result'] = True
+                # 更新重试计数
+                state['retry_count'] = retry_count + 1
+                return {
+                    'execution_result': execution_result,
+                    'row_count': row_count,
+                    'error': '查询结果为空，尝试调整查询条件',
+                    'success': False
+                }
             
             return {
                 'execution_result': execution_result,
@@ -733,10 +834,22 @@ class Text2SQLProcessorLangGraph:
         # 检查是否有错误信息
         error = state.get('error')
         execution_result = state.get('execution_result', {})
+        empty_result = state.get('empty_result', False)
         
         # 如果执行成功，继续后续流程
         if execution_result.get('success', False):
             return "continue"
+        
+        # 如果查询结果为空且在重试次数限制内，尝试调整查询条件
+        if empty_result:
+            # 检查是否已经重试过，避免无限循环
+            retry_count = state.get('retry_count', 0)
+            if retry_count >= 2:  # 空结果最多重试2次
+                logger.info("空结果已达到最大重试次数，流程继续")
+                return "continue"  # 空结果重试次数用完后，继续到解释生成阶段
+            
+            logger.info(f"查询结果为空，将尝试调整查询条件（第{retry_count}次重试）")
+            return "retry"
         
         # 如果有错误，但重试机制已经修正了SQL，则重试
         if error and 'corrected_sql' in execution_result:

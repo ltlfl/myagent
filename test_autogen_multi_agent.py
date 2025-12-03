@@ -169,7 +169,7 @@ class Text2SQLFunctionAgent(AssistantAgent):
             llm_config: LLM配置参数
         """
         default_llm_config = llm_config or {
-            "model": "qwen2.5-14b-instruct",
+            "model": "qwen-plus",
             "temperature": 0.1,
             "max_tokens": 5000,
             "timeout": 120,
@@ -209,7 +209,7 @@ class CustomerSegmentationFunctionAgent(AssistantAgent):
             llm_config: LLM配置参数
         """
         default_llm_config = llm_config or {
-            "model": "qwen2.5-14b-instruct",
+            "model": "qwen-plus",
             "temperature": 0.1,
             "max_tokens": 5000,
             "timeout": 120,
@@ -221,9 +221,10 @@ class CustomerSegmentationFunctionAgent(AssistantAgent):
         你的主要职责是：
         1. 分析用户的客户细分需求
         2. 提取目标客群和对照组信息
-        3. 调用客户细分工具执行分析
-        4. 生成客户对比分析报告
+        3. 调用execute_segmentation_analysis工具执行分析
+        4. 提供详细的客户分析数据和初步结论
         5. 当需求不明确时，向用户追问以获取更多细节
+        6. 不要直接提供最终总结，只提供分析数据和初步结论
         如果你收到简单的SQL查询请求，请将其转交给Text2SQL智能体处理。
         """
         
@@ -257,7 +258,7 @@ class IntegratedMultiAgentSystem:
         """初始化AutoGen智能体系统"""
         # 初始化LLM配置 - 配置正确的API基础URL以支持Qwen模型
         llm_config = {
-            "model": "qwen2.5-14b-instruct",
+            "model": "qwen-plus",
             "temperature": 0.1,
             "max_tokens": 5000,
             "timeout": 120,
@@ -282,6 +283,7 @@ class IntegratedMultiAgentSystem:
             3. 直接转发查询给合适的智能体，避免不必要的中间步骤
             4. 当查询不明确时，向用户追问以获取更多信息
             5. 协调智能体之间的协作，解决复杂问题
+            6. 自动检测和处理智能体执行过程中的错误，触发重试机制
             
             智能体分工原则：
             - Text2SQL智能体：处理数据查询、统计、简单分析等SQL相关任务
@@ -291,6 +293,18 @@ class IntegratedMultiAgentSystem:
             - 对于"分析存款多的客户群体和贷款多的客户群体的区别"这类问题，直接转给客户细分智能体
             - 对于"查询客户总数"这类简单查询，直接转给Text2SQL智能体
             - 仅在确实需要了解表结构时才使用get_database_schema工具
+            
+            错误处理和重试机制：
+            1. 当接收到包含以下错误标记和问题等级的消息时，根据等级进行处理：
+               - **重大问题**：[SQL错误]、[SQL异常]、[分析错误]、[分析异常]、[与题意不符]、[重大问题]
+               - **轻微问题**：[轻微问题]、[SQL优化]
+            2. 处理规则：
+               - **重大问题**：无需征求用户同意，直接重新调用相应智能体生成新的SQL或分析方案
+                 - 对于SQL相关错误，如果原任务是客户细分分析需求，重新调用segmentation_agent生成新的查询方案
+                 - 对于简单查询的SQL错误，重新调用text2sql_agent生成新的SQL查询
+               - **轻微问题**：仅指出问题，不进行修改或重新生成
+                 - 如SQL查询结果为空但语法正确、查询内容可以优化等情况
+            3. 重试时，将原始任务和错误信息一起传递给相应的智能体
             
             避免的行为：
             - 不要重复查询表结构
@@ -307,7 +321,20 @@ class IntegratedMultiAgentSystem:
             ```python
             # 仅在确实需要了解表结构时才调用
             get_database_schema(table_name="customer_info")
-            ```"""
+            ```
+            
+            错误重试示例：
+            - 收到错误："[SQL错误] SQL查询执行失败: 表不存在。请自动重新调用segmentation_agent生成新的SQL查询。"
+            - 你的响应：使用execute_segmentation_analysis工具重新调用客户细分智能体
+            ```python
+            execute_segmentation_analysis(query="分析高价值客户的特征，请修复表名错误")
+            ```
+            - 收到错误："[SQL异常] SQL查询执行异常: 语法错误。请自动重新调用segmentation_agent生成新的SQL查询。"
+            - 你的响应：使用execute_segmentation_analysis工具重新调用客户细分智能体
+            ```python
+            execute_segmentation_analysis(query="对比不同年龄段客户的消费行为，请修正SQL语法错误")
+            ```
+            """
         )
         
         # 设置工具映射，实现无缝集成
@@ -338,6 +365,10 @@ class IntegratedMultiAgentSystem:
                         sql_query = result.get('sql_query', '')
                         query_result = result.get('query_result', [])
                         
+                        # 检查是否有修正历史（这表明之前有执行错误但已修正）
+                        if 'corrected_sql' in result:
+                            return f"[SQL错误] SQL执行出错但已修正，原始错误：{result.get('original_error', '')}，修正后的SQL：{result.get('corrected_sql', '')}，请自动重新调用segmentation_agent生成新的SQL查询"
+                        
                         # 构建详细的响应
                         response_str = f"SQL查询执行成功:\n"
                         if sql_query:
@@ -352,37 +383,75 @@ class IntegratedMultiAgentSystem:
                             
                             if len(query_result) > 5:
                                 response_str += f"... 还有 {len(query_result) - 5} 条记录\n"
+                        else:
+                            # 判断是否为轻微问题：查询返回空结果但SQL语法正确
+                            if sql_query:
+                                return f"[轻微问题] SQL查询结果为空，但SQL语法正确：{sql_query}"
+                            return "[SQL错误] SQL查询结果为空，请自动重新调用segmentation_agent生成新的SQL查询"
                         
                         return response_str
                     else:
-                        error = result.get('error', '未知错误')
-                        return f"SQL查询执行失败: {error}"
+                        # 检查错误类型
+                        error = result.get('error', '')
+                        if '缺失字段' in error or '字段不存在' in error or 'Unknown column' in error:
+                            return f"[重大问题] SQL执行失败：{error}，请自动重新调用segmentation_agent生成新的SQL查询"
+                        return f"[SQL错误] SQL处理失败：{error}，请自动重新调用segmentation_agent生成新的SQL查询"
                 else:
                     # 当text2sql_processor不可用时，返回友好的错误信息
                     # 注意：绝对不应该直接执行用户输入作为SQL语句，这会导致SQL注入漏洞
                     logger.warning("Text2SQL处理器不可用，无法执行查询")
-                    return "查询服务暂时不可用\n\n原因：Text2SQL处理模块未正确初始化\n建议：请检查服务状态或联系系统管理员进行故障排查。\n安全提示：系统已自动阻止了潜在的SQL注入风险。"
+                    return "[服务错误] 查询服务暂时不可用\n\n原因：Text2SQL处理模块未正确初始化\n建议：请检查服务状态或联系系统管理员进行故障排查。"
             except Exception as e:
-                logger.error(f"执行SQL查询出错: {e}")
-                return f"SQL查询执行异常: {str(e)}"
+                error_msg = str(e)
+                if '执行错误' in error_msg or '语法错误' in error_msg or '表不存在' in error_msg:
+                    return f"[重大问题] SQL执行发生异常：{error_msg}，请自动重新调用segmentation_agent生成新的SQL查询"
+                elif '字段缺失' in error_msg or '查询为空' in error_msg:
+                    return f"[轻微问题] SQL执行发生异常：{error_msg}"
+                return f"[SQL异常] SQL查询执行异常: {error_msg}。请自动重新调用segmentation_agent生成新的SQL查询。"
         
         def execute_segmentation_analysis(query: str) -> str:
             """执行客户细分分析"""
             try:
-                if hasattr(self.segmentation_agent, 'segmentation_processor') and self.segmentation_agent.segmentation_processor:
-                    result = self.segmentation_agent.segmentation_processor.process_query(query)
-                    # 转换为AutoGen兼容的字符串格式
-                    if result.get('success', True):
-                        explanation = result.get('explanation', result.get('content', '客户细分分析完成'))
-                        return f"客户细分分析完成: {explanation}"
-                    else:
-                        error = result.get('error', '未知错误')
-                        return f"客户细分分析失败: {error}"
+                # 检查客户细分处理器是否初始化
+                if not hasattr(self.segmentation_agent, 'segmentation_processor') or not self.segmentation_agent.segmentation_processor:
+                    logger.error("客户细分处理器未初始化")
+                    return "[服务错误] 客户细分处理器未初始化。请检查服务状态或重启服务。"
+                
+                # 调用客户细分处理器处理查询
+                logger.info(f"调用客户细分处理器处理查询: {query[:50]}...")
+                result = self.segmentation_agent.segmentation_processor.process_query(query)
+                
+                # 转换为AutoGen兼容的字符串格式
+                if result.get('success', True):
+                    explanation = result.get('explanation', result.get('content', '客户细分分析完成'))
+                    logger.info(f"客户细分分析成功，返回结果")
+                    return f"客户细分分析数据: {explanation}（此为初步分析结论，最终总结由用户代理智能体负责生成）"
                 else:
-                    return "客户细分处理器未初始化"
+                    error = result.get('error', '未知错误')
+                    logger.error(f"客户细分分析失败: {error}")
+                    
+                    # 针对不同类型的错误提供更具体的建议
+                    if "SQL" in error or "语法" in error:
+                        return f"[SQL错误] 客户细分分析失败: {error}。请检查SQL语法或表名是否正确，并重新调用segmentation_agent生成新的查询方案。"
+                    elif "API" in error or "密钥" in error or "欠费" in error:
+                        return f"[API错误] 客户细分分析失败: {error}。请检查API密钥配置或账户状态，并重新调用segmentation_agent。"
+                    elif "超时" in error:
+                        return f"[超时错误] 客户细分分析失败: {error}。请尝试简化查询条件或稍后重试。"
+                    else:
+                        return f"[分析错误] 客户细分分析失败: {error}。请自动重新调用segmentation_agent生成新的查询方案。"
+            except AttributeError as e:
+                logger.error(f"客户细分处理器属性错误: {e}")
+                return f"[服务错误] 客户细分处理器配置错误: {str(e)}。请检查服务配置或重启服务。"
+            except ConnectionError as e:
+                logger.error(f"数据库连接错误: {e}")
+                return f"[连接错误] 数据库连接失败: {str(e)}。请检查数据库连接配置并重试。"
+            except TimeoutError as e:
+                logger.error(f"处理超时错误: {e}")
+                return f"[超时错误] 客户细分分析超时: {str(e)}。请尝试简化查询条件或稍后重试。"
             except Exception as e:
-                logger.error(f"执行客户细分分析出错: {e}")
-                return f"客户细分分析异常: {str(e)}"
+                logger.error(f"执行客户细分分析异常: {e}")
+                # 捕获所有其他异常并返回通用错误信息
+                return f"[分析异常] 客户细分分析遇到意外错误: {str(e)}。请检查输入参数或稍后重试。"
         
         # get_database_schema函数已移至全局作用域
         
@@ -402,16 +471,23 @@ class IntegratedMultiAgentSystem:
             # 创建用户代理
             self.user_proxy = UserProxyAgent(
                 name="user_proxy",
-                system_message="""你是用户代理，负责接收用户请求并协调智能体完成任务。
+                system_message="""你是用户代理，负责接收用户请求并协调智能体完成任务，是最终分析总结的负责人。
                 
                 你的主要职责包括：
                 1. 接收用户的分析需求
                 2. 对于客户细分分析需求，自动生成对照组查询问题
                 3. 协调Text2SQL智能体和客户细分智能体完成分析任务
-                4. 整合分析结果并返回给用户
+                4. 整合所有智能体提供的分析数据和初步结论
+                5. 生成最终的分析总结报告
                 要求：
                 - 分析的结果不要写当前的查询的缺点，而是写当前查询的优点
                 - 内容最多写四节，1.查询数据分析，2.对照问题分析，3.对比分析，4.总结
+                - 确保所有分析数据都被正确解读和总结
+                
+                智能体职责划分：
+                - Text2SQL智能体：负责生成和执行SQL查询，提供原始数据
+                - 客户细分智能体：负责执行客户细分分析，提供分析数据和初步结论
+                - 你（用户代理）：负责整合所有分析结果，生成最终的分析总结报告
                 
                 对于客户细分分析需求（如对比分析、群体分析等），你需要：
                 - 首先识别目标组查询需求
@@ -436,9 +512,10 @@ class IntegratedMultiAgentSystem:
                 重要说明：
                 - 对于简单查询需求，直接转交给Text2SQL智能体
                 - 对于复杂分析需求，先生成对照组，再转交给客户细分智能体
-                - 确保分析完成后返回完整的结果""",
+                - 确保分析完成后返回完整的结果
+                """,
                 human_input_mode="NEVER",  # 自动模式
-                max_consecutive_auto_reply=3,  # 减少连续回复次数，防止无限循环
+                max_consecutive_auto_reply=5,  # 减少连续回复次数，防止无限循环
                 is_termination_msg=lambda x: x.get("content", "").strip().endswith("<END>") or "分析完成" in x.get("content", ""),
                 code_execution_config={"use_docker": False},  # 禁用Docker依赖
                 function_map=function_map
@@ -509,13 +586,14 @@ class IntegratedMultiAgentSystem:
         你的主要职责是：
         1. 分析用户的客户细分和对比分析需求
         2. 提取目标客群和对照组信息
-        3. 调用客户细分工具执行深度分析
-        4. 生成详细的客户对比分析报告
-        5. 提供有洞察力的分析结论和建议
+        3. 调用execute_segmentation_analysis工具执行深度分析
+        4. 提供详细的客户分析数据和初步结论
+        5. 当需求不明确时，向用户追问以获取更多细节
         
         重要要求：
         - 分析的结果不要写当前的查询的缺点，而是写当前查询的优点
-        - 内容最多写四节，1.查询数据分析，2.对照问题分析，3.对比分析，4.总结
+        - 不要直接提供最终总结，只提供分析数据和初步结论
+        - 最终总结由用户代理智能体负责生成
         
         智能体分工：
         - 你负责处理客户群体对比、行为分析、细分建模等复杂分析任务
@@ -556,7 +634,7 @@ class IntegratedMultiAgentSystem:
         
         # 重新创建智能体实例
         llm_config = {
-            "model": "qwen2.5-14b-instruct", 
+            "model": "qwen-plus", 
             "temperature": 0.1, 
             "max_tokens": 5000, 
             "timeout": 120,
@@ -646,6 +724,7 @@ class IntegratedMultiAgentSystem:
         self.group_chat = GroupChat(
             agents=agents,
             messages=[],
+
             max_round=20,  # 增加对话轮次，避免复杂分析被提前终止
             speaker_selection_method="round_robin",  # 可以根据需要调整为其他选择方法
             allow_repeat_speaker=True
@@ -655,7 +734,7 @@ class IntegratedMultiAgentSystem:
         self.group_chat_manager = GroupChatManager(
             groupchat=self.group_chat,
             llm_config={
-                "model": "qwen2.5-14b-instruct", 
+                "model": "qwen-plus", 
                 "timeout": 120,
                 "api_key": os.getenv("OPENAI_API_KEY"),
                 "base_url": os.getenv("OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
