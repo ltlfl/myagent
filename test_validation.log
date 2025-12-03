@@ -1,0 +1,4 @@
+2025-12-02 16:43:14.510 | INFO     | __main__:test_sql_validation:26 - 开始测试SQL验证功能
+2025-12-02 16:43:14.862 | ERROR    | __main__:test_sql_validation:111 - 测试过程中出错: 'LLMClient' object has no attribute 'get_model'
+2025-12-02 16:44:22.252 | INFO     | __main__:test_sql_validation:26 - 开始测试SQL验证功能
+2025-12-02 16:44:22.608 | ERROR    | __main__:test_sql_validation:112 - 测试过程中出错: Text2SQLProcessor.__init__() got an unexpected keyword argument 'model'

@@ -235,7 +235,10 @@ class CustomerSegmentationLangGraph:
                 try:
                     # 获取问题分析提示词
                     problem_analysis_prompt = prompts_manager.get_prompt('text2sql', 'Problem_Analysis_prompt') or \
-                        "你是一个数据分析专家，请分析以下问题并直接返回JSON格式的结果，包含target_query_question和control_query_question两个字段。target_query_question是用于调用text2sql的目标客群查询问题，control_query_question是用于调用text2sql的对照组查询问题。"
+                        "你是一个数据分析专家，请分析以下问题并直接返回JSON格式的结果，\
+                            包含target_query_question和control_query_question两个字段。\
+                            target_query_question是用于调用text2sql的目标客群查询问题，\
+                            control_query_question是用于调用text2sql的对照组查询问题。"
                     
                     # 构建完整的提示信息
                     if hasattr(problem_analysis_prompt, 'format'):
@@ -250,8 +253,36 @@ class CustomerSegmentationLangGraph:
                         full_prompt += f"对话历史:\n{history_text}\n\n"
                     full_prompt += "请直接返回JSON格式的结果，不要包含任何其他文字。"
                     
-                    # 调用模型生成结果
-                    llm_response = self.model.invoke([HumanMessage(content=full_prompt)])
+                    # 调用模型生成结果 - 添加重试机制
+                    max_retries = 3
+                    retry_count = 0
+                    llm_response = None
+                    
+                    while retry_count < max_retries:
+                        try:
+                            llm_response = self.model.invoke([HumanMessage(content=full_prompt)])
+                            logger.debug("调用模型生成查询问题成功")
+                            break
+                        except Exception as invoke_error:
+                            retry_count += 1
+                            logger.error(f"模型调用失败 (尝试 {retry_count}/{max_retries}): {invoke_error}")
+                            
+                            # 检查是否为API相关错误
+                            if "API" in str(invoke_error) or "key" in str(invoke_error).lower() or "quota" in str(invoke_error).lower():
+                                logger.warning("检测到API相关错误，可能是API密钥配置或账户额度问题")
+                                # 不再重试，直接处理
+                                break
+                            
+                            # 不是API错误，等待后重试
+                            if retry_count < max_retries:
+                                import time
+                                time.sleep(1)  # 等待1秒后重试
+                    
+                    # 处理模型调用失败的情况
+                    if llm_response is None:
+                        logger.error("模型调用多次失败，无法生成查询问题")
+                        return {'error': '模型调用失败，无法生成查询问题。可能是API密钥配置错误或账户额度不足。', 'success': False}
+                    
                     response_content = llm_response.content.strip()
                     #logger.info(f"模型返回的分析结果: {response_content[:100]}...")
                     
@@ -326,9 +357,6 @@ class CustomerSegmentationLangGraph:
                 'control_query_question': ''
             }
 
-    
-
-    
     def _target_query_sql_node(self, state: CustomerSegmentationState) -> Dict[str, Any]:
         """生成目标客群SQL查询 - 使用Text2SQLProcessorLangGraph"""
         try:
@@ -357,7 +385,7 @@ class CustomerSegmentationLangGraph:
                     if result.get('success', False):
                         # 直接从Text2SQLProcessor返回的结果中获取sql_query字段
                         target_sql = result.get('sql_query', '')
-                        logger.info(f"通过Text2SQLProcessor生成目标客群SQL: {target_sql[:100]}...")
+                        logger.info(f"通过Text2SQLProcessor生成目标客群SQL: {target_sql}...")
                         
                         # 提取执行结果信息并格式化存储
                         execution_result = result.get('execution_result', {})
@@ -406,7 +434,7 @@ class CustomerSegmentationLangGraph:
                             'formatted_result': '[]',
                             'raw_result': '[]'
                         }
-                    print(f"备用方法生成的目标客群SQL: {fallback_result['target_sql']}")
+                    logger.info(f"备用方法生成的目标客群SQL: {fallback_result['target_sql']}")
                     return fallback_result
             else:
                 logger.warning("Text2SQL处理器未初始化，使用备用SQL生成方法")
@@ -419,7 +447,7 @@ class CustomerSegmentationLangGraph:
                         'formatted_result': '[]',
                         'raw_result': '[]'
                     }
-                print(f"备用方法生成的目标客群SQL: {fallback_result['target_sql']}")
+                logger.info(f"备用方法生成的目标客群SQL: {fallback_result['target_sql']}")
                 return fallback_result
         except Exception as e:
             logger.error(f"生成目标客群SQL失败: {e}")
@@ -429,137 +457,39 @@ class CustomerSegmentationLangGraph:
                     'target_sql_execution_result': {'sql_query': '', 'formatted_result': '[]', 'raw_result': '[]'}}
     
     def _control_query_sql_node(self, state: CustomerSegmentationState) -> Dict[str, Any]:
-        """生成对照组SQL查询 - 使用Text2SQLProcessorLangGraph"""
+        """对照组SQL查询节点 - 现在由user_proxy处理对照组生成"""
         try:
-            control_query_question = state.get('control_query_question', '')
+            # 获取目标组信息
             target_query_question = state.get('target_query_question', '')
             target_sql = state.get('target_sql', '')
-            #这一步成功获取target_sql
-            print(f"_control_query_sql_node对照组获取目标SQL: {target_sql}")
-            session_id = state.get('session_id', 'default')
-            conversation_history = state.get('conversation_history', None)
             
-            # 如果没有对照组查询问题或查询问题不完整，根据目标客群问题生成对照组问题
-            if not control_query_question or len(control_query_question.strip()) < 10:
-                logger.info(f"对照组查询问题为空或不完整，基于目标客群问题生成对照组问题: {target_query_question[:50]}...")
-                
-                # 为了生成正确的对照组SQL，创建一个明确的对照组查询问题
-                # 动态生成对照组查询问题，避免硬编码
-                if target_query_question:
-                    # 使用LLM动态生成对照组查询问题
-                    if self.model:
-                        try:
-                            prompt = f"""
-                            请为以下目标客群查询生成对应的对照组查询问题。对照组应该是与目标客群在关键逻辑上相反的群体。
-                            如果客户没有指定具体的条件，例如收入、年龄等，不要添加具体的数值，保持问题的通用性。
-                            
-                            目标查询: {target_query_question}
-                            
-                            请直接返回对照组查询问题，不要包含任何其他文字。
-                            """
-                            llm_response = self.model.invoke([HumanMessage(content=prompt)])
-                            control_query_question = llm_response.content.strip()
-                            logger.info(f"通过LLM动态生成对照组查询问题: {control_query_question[:100]}...")
-                        except Exception as e:
-                            logger.error(f"生成对照组查询问题失败: {e}")
-                            # 如果LLM生成失败，使用简单的通用方法
-                            control_query_question = f"分析非{target_query_question}"
-                            # 如果替换后太长或不合理，使用更简单的方法
-                            if len(control_query_question) > 100:
-                                control_query_question = f"分析对照组客群"
-                    else:
-                        # 通用对照组生成方法
-                        control_query_question = f"分析非{target_query_question}"
-                        # 如果替换后太长或不合理，使用更简单的方法
-                        if len(control_query_question) > 100:
-                            control_query_question = f"分析对照组客群"
-                
-                logger.info(f"生成的对照组查询问题: {control_query_question}")
+            logger.info(f"对照组节点：目标组查询问题为 '{target_query_question[:50]}...'")
+            logger.info(f"对照组节点：目标组SQL为 '{target_sql[:100]}...'")
             
-            print(f"_control_query_sql_node下对照组问题：{control_query_question}")
+            # 现在对照组生成由user_proxy处理，这里只返回空结果
+            # 在实际使用中，user_proxy会生成对照组查询问题并传递给客户细分智能体
             
-            # 如果Text2SQL处理器初始化成功，使用它生成SQL
-            if self.text2sql_processor:
-                try:
-                    # 直接使用对照组查询问题，并传递目标SQL
-                    result = self.text2sql_processor.process_query(
-                        question=control_query_question,
-                        target_sql=target_sql,  # 传递目标SQL以便生成正确的对照组SQL
-                        session_id=session_id,
-                        conversation_history=conversation_history
-                    )
-
-                    if result.get('success', False):
-                        # 直接从Text2SQLProcessor返回的结果中获取sql_query字段
-                        control_sql = result.get('sql_query', '')
-                        logger.info(f"通过Text2SQLProcessor生成对照组SQL: {control_sql[:100]}...")
-                        
-                        # 对生成的对照组SQL进行检查和修正，确保它是目标客群SQL的正确互补
-                        control_sql = self._check_and_correct_control_sql(target_sql, control_sql)
-                        
-                        # 提取执行结果信息并格式化存储
-                        execution_result = result.get('execution_result', {})
-                        # Text2SQLProcessor返回的execution_result中没有formatted_result字段，直接使用data字段
-                        # 如果data字段不存在，则使用raw_result
-                        data = execution_result.get('data', [])
-                        if data:
-                            formatted_result = str(data)
-                        else:
-                            formatted_result = str(execution_result.get('raw_result', []))
-                        
-                        control_sql_execution_result = {
-                            'sql_query': control_sql,
-                            'formatted_result': formatted_result,
-                            'raw_result': execution_result.get('raw_result', [])
-                        }
-                        print(f"_control_query_sql_node下Text2SQLProcessor返回结果(对照组): {control_sql_execution_result.get('sql_query', '')}")  
-                        return {
-                            'control_sql': control_sql,
-                            'control_sql_execution_result': control_sql_execution_result
-                        }
-                    else:
-                        error_message = result.get('error', '未知错误')
-                        logger.error(f"Text2SQLProcessor处理对照组查询失败: {error_message}")
-                        # 如果失败，尝试使用备用方法并映射结果
-                        control_sql = self._generate_control_sql_from_target(target_sql)
-                        return {
-                            'control_sql': control_sql,
-                            'control_sql_execution_result': {
-                                'sql_query': control_sql,
-                                'formatted_result': '[]',
-                                'raw_result': '[]'
-                            }
-                        }
-                except Exception as e:
-                    logger.error(f"调用Text2SQLProcessor时发生异常: {e}")
-                    # 如果调用时发生异常，直接基于目标SQL生成对照组SQL
-                    control_sql = self._generate_control_sql_from_target(target_sql)
-                    return {
-                        'control_sql': control_sql,
-                        'control_sql_execution_result': {
-                            'sql_query': control_sql,
-                            'formatted_result': '[]',
-                            'raw_result': '[]'
-                        }
-                    }
-            else:
-                logger.warning("Text2SQL处理器未初始化，直接基于目标SQL生成对照组SQL")
-                # 直接基于目标SQL生成对照组SQL
-                control_sql = self._generate_control_sql_from_target(target_sql)
-                return {
-                    'control_sql': control_sql,
-                    'control_sql_execution_result': {
-                        'sql_query': control_sql,
-                        'formatted_result': '[]',
-                        'raw_result': '[]'
-                    }
-                }
+            return {
+                'control_sql': '',
+                'control_sql_execution_result': {
+                    'sql_query': '',
+                    'formatted_result': '[]',
+                    'raw_result': '[]'
+                },
+                'message': '对照组生成已由user_proxy处理，请使用user_proxy生成的对照组查询问题'
+            }
+            
         except Exception as e:
-            logger.error(f"生成对照组SQL失败: {e}")
-            # 返回错误信息并确保包含执行结果信息
-            return {'control_sql': '', 
-                    'error': f'生成对照组SQL失败: {str(e)}',
-                    'control_sql_execution_result': {'sql_query': '', 'formatted_result': '[]', 'raw_result': '[]'}}
+            logger.error(f"对照组节点处理失败: {e}")
+            return {
+                'control_sql': '',
+                'error': f'对照组节点处理失败: {str(e)}',
+                'control_sql_execution_result': {
+                    'sql_query': '',
+                    'formatted_result': '[]',
+                    'raw_result': '[]'
+                }
+            }
     
     def _fallback_sql_generation(self, query_question: str) -> Dict[str, Any]:
         """备用SQL生成方法，当Text2SQLProcessor失败时使用"""
@@ -581,8 +511,36 @@ class CustomerSegmentationLangGraph:
                 logger.error("模型未初始化，无法生成SQL")
                 return {'error': '模型未初始化，无法生成SQL'}
             
-            # 调用模型生成SQL
-            response = self.model.invoke([HumanMessage(content=full_prompt)])
+            # 调用模型生成SQL - 添加重试机制
+            max_retries = 3
+            retry_count = 0
+            response = None
+            
+            while retry_count < max_retries:
+                try:
+                    response = self.model.invoke([HumanMessage(content=full_prompt)])
+                    logger.debug("调用模型生成SQL成功")
+                    break
+                except Exception as invoke_error:
+                    retry_count += 1
+                    logger.error(f"模型调用失败 (尝试 {retry_count}/{max_retries}): {invoke_error}")
+                    
+                    # 检查是否为API相关错误
+                    if "API" in str(invoke_error) or "key" in str(invoke_error).lower() or "quota" in str(invoke_error).lower():
+                        logger.warning("检测到API相关错误，可能是API密钥配置或账户额度问题")
+                        # 不再重试，直接处理
+                        break
+                    
+                    # 不是API错误，等待后重试
+                    if retry_count < max_retries:
+                        import time
+                        time.sleep(1)  # 等待1秒后重试
+            
+            # 处理模型调用失败的情况
+            if response is None:
+                logger.error("模型调用多次失败，无法生成SQL")
+                return {'error': '模型调用失败，无法生成SQL。可能是API密钥配置错误或账户额度不足。', 'success': False}
+            
             sql_result = response.content
             
             # 提取SQL语句（尝试找到以SELECT开头的部分）
@@ -669,8 +627,38 @@ class CustomerSegmentationLangGraph:
                     
                     请直接返回生成的对照组SQL，确保它是有效的SQL语句，不要包含任何其他文字。
                     """
-                    llm_response = self.model.invoke([HumanMessage(content=prompt)])
-                    llm_generated_sql = llm_response.content.strip()
+                    # 添加模型调用重试机制
+                    max_retries = 3
+                    retry_count = 0
+                    llm_response = None
+                    
+                    while retry_count < max_retries:
+                        try:
+                            llm_response = self.model.invoke([HumanMessage(content=prompt)])
+                            logger.debug("调用模型生成对照组SQL成功")
+                            break
+                        except Exception as invoke_error:
+                            retry_count += 1
+                            logger.error(f"模型调用失败 (尝试 {retry_count}/{max_retries}): {invoke_error}")
+                            
+                            # 检查是否为API相关错误
+                            if "API" in str(invoke_error) or "key" in str(invoke_error).lower() or "quota" in str(invoke_error).lower():
+                                logger.warning("检测到API相关错误，可能是API密钥配置或账户额度问题")
+                                # 不再重试，直接处理
+                                break
+                            
+                            # 不是API错误，等待后重试
+                            if retry_count < max_retries:
+                                import time
+                                time.sleep(1)  # 等待1秒后重试
+                    
+                    # 处理模型调用失败的情况
+                    if llm_response is None:
+                        logger.error("模型调用多次失败，无法生成对照组SQL")
+                        # 跳过模型调用，使用后续的后备逻辑
+                        pass
+                    else:
+                        llm_generated_sql = llm_response.content.strip()
                     
                     # 验证返回的是有效的SQL语句
                     if llm_generated_sql and 'SELECT' in llm_generated_sql.upper():
@@ -783,8 +771,36 @@ class CustomerSegmentationLangGraph:
                 explanation_content += f"对照组原始结果：{control_raw_result}\n\n"
             explanation_content += "请提供对查询逻辑的解释和分析建议，包括目标客群与对照组的对比分析："
             
-            # 调用大模型生成解释
-            response = self.model.invoke([HumanMessage(content=explanation_content)])
+            # 调用大模型生成解释 - 添加重试机制
+            max_retries = 3
+            retry_count = 0
+            response = None
+            
+            while retry_count < max_retries:
+                try:
+                    response = self.model.invoke([HumanMessage(content=explanation_content)])
+                    logger.debug("调用大模型生成解释成功")
+                    break
+                except Exception as invoke_error:
+                    retry_count += 1
+                    logger.error(f"模型调用失败 (尝试 {retry_count}/{max_retries}): {invoke_error}")
+                    
+                    # 检查是否为API相关错误
+                    if "API" in str(invoke_error) or "key" in str(invoke_error).lower() or "quota" in str(invoke_error).lower():
+                        logger.warning("检测到API相关错误，可能是API密钥配置或账户额度问题")
+                        # 不再重试，直接处理
+                        break
+                    
+                    # 不是API错误，等待后重试
+                    if retry_count < max_retries:
+                        import time
+                        time.sleep(1)  # 等待1秒后重试
+            
+            # 处理模型调用失败的情况
+            if response is None:
+                logger.error("模型调用多次失败，无法生成分析解释")
+                return {'explanation': '', 'error': '模型调用失败，无法生成分析解释。可能是API密钥配置错误或账户额度不足。', 'success': False}
+            
             explanation = response.content.strip()
             
             logger.info("生成分析结果解释完成")
@@ -833,7 +849,7 @@ class CustomerSegmentationLangGraph:
                     "explanation": result.get('explanation', ''),
                 }
                 
-                print(f"****成功获取到最终的解释: {response['explanation']}...")
+                logger.info(f"****成功获取到最终的解释: {response['explanation']}...")
                 return response
             else:
                 logger.error(f"查询处理失败: {result.get('error', '未知错误')}")

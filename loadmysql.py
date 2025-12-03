@@ -655,7 +655,6 @@ def import_data_to_mysql():
         # 按照依赖关系重新排序，先删除引用其他表的表，再删除被引用的表
         tables_to_drop = [
             # 第一层：引用其他表的表
-            'customer_monthly_balance',  # 引用customer_info和deposit_business
             'customer_transaction',  # 引用customer_info和deposit_business
             'customer_product_hold',  # 可能引用customer_info、deposit_business和loan_business
             
@@ -727,16 +726,35 @@ def import_data_to_mysql():
         INSERT INTO deposit_business (ACCT_NO, CUST_NO, PROD_CD, ACCT_TYPE, ACCT_STATUS, CCY_CD, CUR_BAL, FIX_BAL, FROZEN_AMT, OPEN_DT, LAST_TRN_DT, MTH_AVG_BAL, MATURITY_DT)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.executemany(deposit_sql, deposit_data)
-        print(f"插入存款业务 {len(deposit_data)} 条")
+        # 确保存款业务中的客户号和产品代码都有效
+        valid_cust_nos = {c[0] for c in customer_data}
+        valid_prod_cds = {p[0] for p in product_data}
+        filtered_deposit_data = []
+        
+        for row in deposit_data:
+            # 确保客户号存在于customer_info中且产品代码存在于product_info中
+            if row[1] in valid_cust_nos and row[2] in valid_prod_cds:
+                filtered_deposit_data.append(row)
+        
+        cursor.executemany(deposit_sql, filtered_deposit_data)
+        print(f"插入存款业务 {len(filtered_deposit_data)} 条")
 
         # 6. 插入贷款业务
         loan_sql = """
         INSERT INTO loan_business (DUE_BILL_NO, LN_ACCT_NO, CUST_NO, PROD_CD, LN_TYPE, LN_VARIETY, CONT_AMT, LN_BAL, DISB_DT, MATURITY_DT, INT_RATE, REPAY_MODE, LN_STATUS, OVERDUE_DAYS, CLASS_5, MTH_DUE_AMT)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.executemany(loan_sql, loan_data)
-        print(f"插入贷款业务 {len(loan_data)} 条")
+        # 确保贷款业务中的客户号和产品代码都有效
+        filtered_loan_data = []
+        
+        for row in loan_data:
+            # 确保客户号存在于customer_info中且产品代码存在于product_info中
+            if row[2] in valid_cust_nos and row[3] in valid_prod_cds:
+                filtered_loan_data.append(row)
+        
+        cursor.executemany(loan_sql, filtered_loan_data)
+        print(f"插入贷款业务 {len(filtered_loan_data)} 条")
+        print(f"确保了存款和贷款业务中的客户号和产品代码都有效")
         
         # 7. 插入理财产品信息
         finance_prod_sql = """
@@ -759,8 +777,19 @@ def import_data_to_mysql():
         INSERT INTO customer_transaction (TRANS_ID, CUST_NO, ACCT_NO, TRANS_DT, TRANS_AMT, TRANS_TYPE, CHANNEL, TRANS_STATUS)
         VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.executemany(customer_transaction_sql, customer_transaction_data)
-        print(f"插入客户交易明细数据 {len(customer_transaction_data)} 条")
+        # 确保交易数据中的客户号和账号都有效
+        valid_cust_nos = {c[0] for c in customer_data}
+        valid_acct_nos = {d[0] for d in deposit_data}
+        filtered_transaction_data = []
+        
+        for row in customer_transaction_data:
+            # 确保客户号存在于customer_info中且账号存在于deposit_business中
+            if row[1] in valid_cust_nos and row[2] in valid_acct_nos:
+                filtered_transaction_data.append(row)
+        
+        cursor.executemany(customer_transaction_sql, filtered_transaction_data)
+        print(f"插入客户交易明细数据 {len(filtered_transaction_data)} 条")
+        print(f"确保了交易数据中的客户号和账号都有效")
         
 
         # 11. 插入客户产品持有汇总数据
@@ -768,42 +797,81 @@ def import_data_to_mysql():
         INSERT INTO customer_product_hold (CUST_NO, PROD_COUNT, DEP_PROD_COUNT, LN_PROD_COUNT, FIN_PROD_COUNT, CC_PROD_COUNT, EXPIRY_30D_AMT)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.executemany(customer_product_hold_sql, customer_product_hold_data)
-        print(f"插入客户产品持有汇总数据 {len(customer_product_hold_data)} 条")
+        # 确保客户号有效
+        valid_cust_nos = {c[0] for c in customer_data}
+        filtered_product_hold_data = []
+        
+        for row in customer_product_hold_data:
+            # 确保客户号存在于customer_info中
+            if row[0] in valid_cust_nos:
+                filtered_product_hold_data.append(row)
+        
+        cursor.executemany(customer_product_hold_sql, filtered_product_hold_data)
+        print(f"插入客户产品持有汇总数据 {len(filtered_product_hold_data)} 条")
         
         # 12. 插入客户渠道偏好数据
         customer_channel_preference_sql = """
         INSERT INTO customer_channel_preference (CUST_NO, MB_TRANS_RATE, COUNTER_TRANS_RATE, CHANNEL_ACTIVE_SCORE)
         VALUES (%s, %s, %s, %s)
         """
-        cursor.executemany(customer_channel_preference_sql, customer_channel_preference_data)
-        print(f"插入客户渠道偏好数据 {len(customer_channel_preference_data)} 条")
+        filtered_channel_preference_data = []
+        
+        for row in customer_channel_preference_data:
+            # 确保客户号存在于customer_info中
+            if row[0] in valid_cust_nos:
+                filtered_channel_preference_data.append(row)
+        
+        cursor.executemany(customer_channel_preference_sql, filtered_channel_preference_data)
+        print(f"插入客户渠道偏好数据 {len(filtered_channel_preference_data)} 条")
         
         # 13. 插入营销活动数据
         marketing_campaign_sql = """
         INSERT INTO marketing_campaign (CAMPAIGN_ID, CUST_NO, STRATEGY_TYPE, PUSH_CHANNEL, EXECUTE_DT, RESPONSE_STATUS, AUM_CHANGE)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
         """
-        cursor.executemany(marketing_campaign_sql, marketing_campaign_data)
-        print(f"插入营销活动数据 {len(marketing_campaign_data)} 条")
+        filtered_campaign_data = []
+        
+        for row in marketing_campaign_data:
+            # 确保客户号存在于customer_info中
+            if row[1] in valid_cust_nos:
+                filtered_campaign_data.append(row)
+        
+        cursor.executemany(marketing_campaign_sql, filtered_campaign_data)
+        print(f"插入营销活动数据 {len(filtered_campaign_data)} 条")
         
         # 14. 插入客户扩展信息数据
         customer_extend_info_sql = """
         INSERT INTO customer_extend_info (CUST_NO, MARITAL_STATUS, EDUCATION, CREDIT_DEFAULT, HOUSING_LOAN, SALARY_PAYMENT)
         VALUES (%s, %s, %s, %s, %s, %s)
         """
-        cursor.executemany(customer_extend_info_sql, customer_extend_info_data)
-        print(f"插入客户扩展信息数据 {len(customer_extend_info_data)} 条")
+        filtered_extend_info_data = []
+        
+        for row in customer_extend_info_data:
+            # 确保客户号存在于customer_info中
+            if row[0] in valid_cust_nos:
+                filtered_extend_info_data.append(row)
+        
+        cursor.executemany(customer_extend_info_sql, filtered_extend_info_data)
+        print(f"插入客户扩展信息数据 {len(filtered_extend_info_data)} 条")
+        print(f"确保了所有引用customer_info的表的客户号都有效")
         
         # 15. 插入客户月存款变化信息数据
         customer_monthly_deposit_change_sql = """
         INSERT INTO customer_monthly_deposit_change (CUST_NO, MONTH, DEPOSIT_AMT, CHANGE_AMT, CHANGE_RATE)
         VALUES (%s, %s, %s, %s, %s)
         """
-        # 移除ID字段（自增）
-        deposit_change_data = [(row[1], row[2], row[3], row[4], row[5]) for row in customer_monthly_deposit_change_data]
-        cursor.executemany(customer_monthly_deposit_change_sql, deposit_change_data)
-        print(f"插入客户月存款变化信息数据 {len(customer_monthly_deposit_change_data)} 条")
+        # 确保只使用有效的客户号（检查customer_data中的客户号）
+        valid_cust_nos = {c[0] for c in customer_data}
+        filtered_deposit_change_data = []
+        
+        for row in customer_monthly_deposit_change_data:
+            # 确保客户号存在于customer_info中
+            if row[1] in valid_cust_nos:
+                filtered_deposit_change_data.append((row[1], row[2], row[3], row[4], row[5]))
+        
+        cursor.executemany(customer_monthly_deposit_change_sql, filtered_deposit_change_data)
+        print(f"插入客户月存款变化信息数据 {len(filtered_deposit_change_data)} 条")
+        print(f"确保了 {len(filtered_deposit_change_data)} 条记录的客户号都在customer_info表中存在")
 
         # 提交事务
         conn.commit()

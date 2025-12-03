@@ -4,20 +4,12 @@ Text2SQL模块
 """
 # 导入传统Text2SQL处理器
 try:
-    from .text2sql_processor import Text2SQLProcessor as LegacyText2SQLProcessor
-    # 不再直接导入实例，而是在需要时创建
-    # 提供一个函数来获取处理器实例
-    def get_text2sql_processor():
-        """获取Text2SQL处理器实例"""
-        return LegacyText2SQLProcessor()
-    
-    # 为了向后兼容，提供一个懒加载的实例
-    text2sql_processor = None
+    from .huaxiang_processor import Text2SQLProcessor as LegacyText2SQLProcessor
+    from .huaxiang_processor import text2sql_processor
 except ImportError:
     # 如果无法导入，提供占位符
     LegacyText2SQLProcessor = None
     text2sql_processor = None
-    get_text2sql_processor = lambda: None
 
 # 导入基于LangGraph的Text2SQL处理器
 try:

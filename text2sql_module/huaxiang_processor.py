@@ -38,48 +38,45 @@ logger = get_logger(__name__)
 # 定义LangGraph状态
 def default_state():
     return {
-        "original_query": "",
-        "enhanced_query": "",
-        "generated_sql": "",
-        "initial_sql": "",
-        "refined_sql": "",
-        "execution_result": {},
-        "explanation": "",
-        "session_id": "default",
-        "entities": None,
-        "target_sql": "",  # 保持向后兼容
-        "target_sql_part": None,  # 与Text2SQLState保持一致
-        "conversation_history": None,
+        # 基础SQL相关字段
+
         "validation_result": None,
-        "refined_validation_result": None,
         "error": None,
-        "success": False
+        "success": False,
+        # 画像生成相关字段
+        "profile_labels": [],  # 存储生成的所有画像标签
+        "current_profile_index": 0,  # 当前处理的画像索引
+        "current_profile_label": "",  # 当前处理的画像标签
+        "current_profile_sql": "",  # 当前处理的画像SQL语句
+        "current_model_validation": {},  # 当前画像的大模型验证结果
+        "current_natural_language": "",  # 当前画像的自然语言描述
+        "current_user_confirmation": None,  # 当前画像的用户确认状态
+        "current_execution_status": {}  # 当前画像的执行状态
+        # 采用逐个处理方式，避免存储所有画像SQL语句，节省内存并提高交互性
     }
 
 class Text2SQLState(TypedDict):
-    original_query: str
-    enhanced_query: str
-    generated_sql: str
-    initial_sql: str
-    target_sql: str
-    target_sql_part: str
-    refined_sql: str
-    execution_result: Dict[str, Any]
-    explanation: str
-    session_id: str
-    entities: Optional[Dict[str, Any]]
-    conversation_history: Optional[List[Dict]]
+    # 核心状态字段
     validation_result: Optional[Dict[str, Any]]
-    refined_validation_result: Optional[Dict[str, Any]]
     error: Optional[str]
     success: bool
+    
+    # 画像生成专用字段
+    profile_labels: List[str]
+    current_profile_index: int
+    current_profile_label: Optional[str]
+    current_profile_sql: Optional[str]
+    current_model_validation: Optional[Dict[str, Any]]
+    current_natural_language: Optional[str]
+    current_user_confirmation: Optional[bool]
+    current_execution_status: Optional[str]
 
-class Text2SQLProcessorLangGraph:
-    """基于LangGraph实现的Text2SQL处理器，保持与原始处理器相同的接口"""
+class HuaXiangProcessorLangGraph:
+    """基于LangGraph实现的用户画像生成处理器，保持与原始处理器相同的接口"""
     
     def __init__(self, db_uri: Optional[str] = None, model_name: str = "qwen-plus"):
         """
-        初始化Text2SQL处理器
+        初始化用户画像生成处理器                                        
         
         Args:
             db_uri: 数据库连接URI
@@ -1097,5 +1094,3 @@ class Text2SQLProcessorLangGraph:
                 'session_id': session_id
             }
 
-# 不再在模块导入时创建全局实例，避免配置问题
-# text2sql_processor = Text2SQLProcessorLangGraph()
